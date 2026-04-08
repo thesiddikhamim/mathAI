@@ -1,6 +1,5 @@
 ## Ollama
-The ollama model is based on corsproxy.io. I don't know how it actually works and what is this. 
-
+The ollama model is based on corsproxy.io. I don't know how it actually works and what is this. Later AI make ollama.js for vercel proxy. Then it doesn't need corsproxy.io
 
 
 ### AI problem says 

@@ -1,56 +1,36 @@
-export const config = {
-  runtime: 'edge',
-};
+export const maxDuration = 60; // Max allowed for Vercel free tier
 
-export default async function handler(req) {
-  // 1. Handle CORS Preflight checks for the browser
+export default async function handler(req, res) {
+  // 1. Handle CORS checks
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
   if (req.method === 'OPTIONS') {
-    return new Response('OK', {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      },
-    });
+    return res.status(200).end();
   }
 
   if (req.method !== 'POST') {
-    return new Response('Only POST is supported', { status: 405 });
+    return res.status(405).json({ error: 'Only POST is supported' });
   }
 
   try {
-    const body = await req.json();
+    const authHeader = req.headers.authorization || '';
 
-    // The key that is forwarded from your frontend script.js
-    const authHeader = req.headers.get('Authorization') || '';
-
-    // 2. We securely route exactly what you sent us to Ollama
+    // Route to Ollama directly with a standard backend Fetch
     const targetResponse = await fetch('https://ollama.com/api/chat', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': authHeader, // forward the API key
+        'Authorization': authHeader,
       },
-      body: JSON.stringify(body),
+      body: typeof req.body === 'string' ? req.body : JSON.stringify(req.body),
     });
 
     const data = await targetResponse.json();
 
-    // 3. Return the response back to your frontend WITH cors headers!
-    return new Response(JSON.stringify(data), {
-      status: targetResponse.status,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
-    });
+    return res.status(targetResponse.status).json(data);
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Content-Type': 'application/json',
-      },
-    });
+    return res.status(500).json({ error: error.message || 'Could not reach server' });
   }
 }

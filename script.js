@@ -879,7 +879,9 @@ async function solveSelection() {
   el.chatContainer.classList.add('hidden');
   const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral' };
   el.loadingSubText.textContent = `${providerNames[state.provider]} is analyzing your selection…`;
-  setHint('Solving…');
+  if (isMobile() && window.showPanel) {
+    window.showPanel('solution');
+  }
 
   try {
     let response;
@@ -1406,15 +1408,15 @@ document.addEventListener('keydown', e => {
   if (!tabViewer) return; // Safety in case elements are missing
 
   /* ── Panel switching ─────────────────────────────────── */
-  let activeTab = 'viewer'; // 'viewer' | 'solution'
+  let activeTab = 'viewer';
 
-  function showPanel(tab) {
+  window.showPanel = function(tab) {
     activeTab = tab;
 
     // Update tab active states
     tabViewer.classList.toggle('active',   tab === 'viewer');
     tabSolution.classList.toggle('active', tab === 'solution');
-    tabSelect.classList.toggle('active',   tab === 'select');
+    if (tabSelect) tabSelect.classList.toggle('active', tab === 'select');
 
     // Show/hide panels
     if (tab === 'solution') {
@@ -1444,16 +1446,10 @@ document.addEventListener('keydown', e => {
   tabViewer.addEventListener('click', () => showPanel('viewer'));
   tabSolution.addEventListener('click', () => showPanel('solution'));
 
-  /* ── "Select" tab: activate touch crop mode ──────────── */
-  tabSelect.addEventListener('click', () => {
-    if (!state.file) {
-      showToast('Upload an image or PDF first.');
-      showPanel('viewer');
-      return;
-    }
+  // Ensure start on viewer tab on mobile
+  if (isMobile()) {
     showPanel('viewer');
-    activateTouchSelectMode();
-  });
+  }
 
   /* ── Touch Select Mode ───────────────────────────────── */
   let touchSelectActive = false;
@@ -1508,8 +1504,6 @@ document.addEventListener('keydown', e => {
       return;
     }
     solveSelection();
-    // After solve starts, switch to solution tab
-    setTimeout(() => showPanel('solution'), 300);
   });
 
   /* ── Touch / Pointer events for selection overlay ───── */

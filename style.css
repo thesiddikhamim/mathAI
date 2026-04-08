@@ -1073,6 +1073,7 @@ body {
 
   /* Tab bar */
   .mobile-tab-bar { display: flex; }
+  #tabSelectRegion { display: none !important; }
 
   /* Mobile FAB */
   .mobile-solve-fab { display: flex; }

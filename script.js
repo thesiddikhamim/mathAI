@@ -55,7 +55,8 @@ const el = {
   pdfNav:       $('pdfNav'),
   prevPage:     $('prevPage'),
   nextPage:     $('nextPage'),
-  pageInfo:     $('pageInfo'),
+  pageInput:    $('pageInput'),
+  pageTotal:    $('pageTotal'),
 
   // Viewer
   pdfCanvas:    $('pdfCanvas'),
@@ -424,7 +425,8 @@ async function renderPDFPage(n) {
   cvs.width  = vp.width;
   cvs.height = vp.height;
   await page.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
-  el.pageInfo.textContent     = `${n} / ${state.totalPages}`;
+  if(el.pageInput) el.pageInput.value = n;
+  if(el.pageTotal) el.pageTotal.textContent = state.totalPages;
   el.prevPage.disabled        = n <= 1;
   el.nextPage.disabled        = n >= state.totalPages;
 }
@@ -435,6 +437,21 @@ el.prevPage.addEventListener('click', () => {
 el.nextPage.addEventListener('click', () => {
   if (state.curPage < state.totalPages) { state.curPage++; renderPDFPage(state.curPage); }
 });
+
+if (el.pageInput) {
+  el.pageInput.addEventListener('change', (e) => {
+    let n = parseInt(e.target.value, 10);
+    if (isNaN(n)) n = state.curPage;
+    if (n < 1) n = 1;
+    if (n > state.totalPages) n = state.totalPages;
+    if (n !== state.curPage) {
+      state.curPage = n;
+      renderPDFPage(state.curPage);
+    } else {
+      e.target.value = state.curPage;
+    }
+  });
+}
 
 /* =========================================================
    SELECTION — Draw / Move / Resize

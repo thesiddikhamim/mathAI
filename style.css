@@ -280,7 +280,23 @@ body {
 }
 
 .pdf-nav { display: flex; align-items: center; gap: 4px; }
-.page-info { font-size: 12px; font-weight: 500; color: var(--text-muted); white-space: nowrap; }
+.page-info-wrap {
+  display: flex; align-items: center; gap: 4px;
+  font-size: 13px; font-weight: 500; color: var(--text-muted);
+}
+.page-input {
+  width: 40px; text-align: center;
+  background: var(--bg-tertiary); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: 4px 2px; font-family: var(--font-mono); font-size: 13px;
+  -moz-appearance: textfield;
+  appearance: textfield;
+  transition: all var(--tr);
+  outline: none;
+}
+.page-input::-webkit-outer-spin-button,
+.page-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.page-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
 /* ── Viewer Body ────────────────────────────────────────── */
 .viewer-body {

@@ -29,7 +29,16 @@ const el = {
   toggleKeyVis: $('toggleKeyVisibility'),
   eyeOpen:      document.querySelector('.eye-open'),
   eyeClosed:    document.querySelector('.eye-closed'),
-  modelSelect:  $('modelSelect'),
+  geminiModelSelect: $('geminiModelSelect'),
+  // Groq
+  groqApiKeyInput:  $('groqApiKeyInput'),
+  toggleGroqKeyVis: $('toggleGroqKeyVis'),
+  groqModelSelect:  $('groqModelSelect'),
+  // Mistral
+  mistralApiKeyInput:  $('mistralApiKeyInput'),
+  toggleMistralKeyVis: $('toggleMistralKeyVis'),
+  mistralModelSelect:  $('mistralModelSelect'),
+  // Settings actions
   saveKey:      $('saveApiKey'),
   clearKey:     $('clearApiKey'),
   settingsSt:   $('settingsStatus'),
@@ -70,7 +79,14 @@ const el = {
   copyBtn:      $('copyBtn'),
   emptyState:   $('emptyState'),
   loadingState: $('loadingState'),
+  loadingSubText: $('loadingSubText'),
   solutionContent: $('solutionContent'),
+
+  // Model switcher
+  switchGemini:    $('switchGemini'),
+  switchGroq:      $('switchGroq'),
+  switchMistral:   $('switchMistral'),
+  activeModelName: $('activeModelName'),
 
   // Chat
   chatContainer:$('chatContainer'),
@@ -89,10 +105,19 @@ const state = {
   curPage:     1,
   totalPages:  0,
   rawResponse: '',
-  apiKey:      '',
-  model:       'gemini-2.0-flash',
+  // Per-provider credentials & models
+  apiKey:         '',
+  groqApiKey:     '',
+  mistralApiKey:  '',
+  geminiModel:    'gemini-2.5-pro',
+  groqModel:      'meta-llama/llama-4-scout-17b-16e-instruct',
+  mistralModel:   'mistral-large-latest',
+  // Active provider
+  provider:    'gemini',  // 'gemini' | 'groq' | 'mistral'
   chatHistory: [],
   isSolved:    false,
+  // Per-provider answer cache: { provider: { rawResponse, chatHistory, solutionHTML } }
+  answerCache: {},
 };
 
 /* ── Selection state ────────────────────────────────────── */
@@ -179,8 +204,12 @@ el.darkToggle.addEventListener('click', () => {
    ========================================================= */
 
 function openSettings() {
-  el.apiKeyInput.value = state.apiKey;
-  el.modelSelect.value = state.model;
+  el.apiKeyInput.value        = state.apiKey;
+  el.groqApiKeyInput.value    = state.groqApiKey;
+  el.mistralApiKeyInput.value = state.mistralApiKey;
+  el.geminiModelSelect.value  = state.geminiModel;
+  el.groqModelSelect.value    = state.groqModel;
+  el.mistralModelSelect.value = state.mistralModel;
   el.settingsSt.classList.add('hidden');
   el.settingsOv.classList.remove('hidden');
   setTimeout(() => el.apiKeyInput.focus(), 80);
@@ -193,30 +222,59 @@ el.settingsBtn.addEventListener('click', openSettings);
 el.settingsClose.addEventListener('click', closeSettings);
 el.settingsOv.addEventListener('click', e => { if (e.target === el.settingsOv) closeSettings(); });
 
-el.toggleKeyVis.addEventListener('click', () => {
-  const pw = el.apiKeyInput.type === 'password';
-  el.apiKeyInput.type = pw ? 'text' : 'password';
-  el.eyeOpen.classList.toggle('hidden', pw);
-  el.eyeClosed.classList.toggle('hidden', !pw);
-});
+// Eye toggle for each provider key
+function makeEyeToggle(btn, input) {
+  btn.addEventListener('click', () => {
+    const pw = input.type === 'password';
+    input.type = pw ? 'text' : 'password';
+    btn.querySelector('.eye-open').classList.toggle('hidden', pw);
+    btn.querySelector('.eye-closed').classList.toggle('hidden', !pw);
+  });
+}
+makeEyeToggle(el.toggleKeyVis,        el.apiKeyInput);
+makeEyeToggle(el.toggleGroqKeyVis,    el.groqApiKeyInput);
+makeEyeToggle(el.toggleMistralKeyVis, el.mistralApiKeyInput);
 
 el.saveKey.addEventListener('click', () => {
-  const key   = el.apiKeyInput.value.trim();
-  const model = el.modelSelect.value;
-  if (!key) { showSettingsSt('Please enter a key.', 'error'); return; }
-  state.apiKey = key;
-  state.model  = model;
-  localStorage.setItem('mathai-apikey', key);
-  localStorage.setItem('mathai-model',  model);
-  showSettingsSt('✓ Settings saved!', 'success');
+  const gemKey     = el.apiKeyInput.value.trim();
+  const groqKey    = el.groqApiKeyInput.value.trim();
+  const mistralKey = el.mistralApiKeyInput.value.trim();
+
+  if (!gemKey && !groqKey && !mistralKey) {
+    showSettingsSt('Enter at least one API key.', 'error');
+    return;
+  }
+
+  state.apiKey        = gemKey;
+  state.groqApiKey    = groqKey;
+  state.mistralApiKey = mistralKey;
+  state.geminiModel   = el.geminiModelSelect.value;
+  state.groqModel     = el.groqModelSelect.value;
+  state.mistralModel  = el.mistralModelSelect.value;
+
+  if (gemKey)     localStorage.setItem('mathai-apikey', gemKey);
+  else            localStorage.removeItem('mathai-apikey');
+  if (groqKey)    localStorage.setItem('mathai-groq-apikey', groqKey);
+  else            localStorage.removeItem('mathai-groq-apikey');
+  if (mistralKey) localStorage.setItem('mathai-mistral-apikey', mistralKey);
+  else            localStorage.removeItem('mathai-mistral-apikey');
+
+  localStorage.setItem('mathai-gemini-model',   state.geminiModel);
+  localStorage.setItem('mathai-groq-model',     state.groqModel);
+  localStorage.setItem('mathai-mistral-model',  state.mistralModel);
+
+  updateSwitcherModelLabel();
+  showSettingsSt('✓ All settings saved!', 'success');
   setTimeout(closeSettings, 1100);
 });
 
 el.clearKey.addEventListener('click', () => {
-  state.apiKey = '';
-  el.apiKeyInput.value = '';
+  state.apiKey = ''; state.groqApiKey = ''; state.mistralApiKey = '';
+  el.apiKeyInput.value = ''; el.groqApiKeyInput.value = ''; el.mistralApiKeyInput.value = '';
   localStorage.removeItem('mathai-apikey');
-  showSettingsSt('API key cleared.', 'success');
+  localStorage.removeItem('mathai-groq-apikey');
+  localStorage.removeItem('mathai-mistral-apikey');
+  showSettingsSt('All API keys cleared.', 'success');
 });
 
 function showSettingsSt(msg, type) {
@@ -226,10 +284,25 @@ function showSettingsSt(msg, type) {
 }
 
 function loadSettings() {
-  const k = localStorage.getItem('mathai-apikey');
-  const m = localStorage.getItem('mathai-model');
-  if (k) state.apiKey = k;
-  if (m) state.model  = m;
+  const k  = localStorage.getItem('mathai-apikey');
+  const gk = localStorage.getItem('mathai-groq-apikey');
+  const mk = localStorage.getItem('mathai-mistral-apikey');
+  const gm = localStorage.getItem('mathai-gemini-model');
+  const grm= localStorage.getItem('mathai-groq-model');
+  const mm = localStorage.getItem('mathai-mistral-model');
+  const pr = localStorage.getItem('mathai-provider');
+
+  if (k)   state.apiKey        = k;
+  if (gk)  state.groqApiKey    = gk;
+  if (mk)  state.mistralApiKey = mk;
+  if (gm)  state.geminiModel   = gm;
+  if (grm) state.groqModel     = grm;
+  if (mm)  state.mistralModel  = mm;
+  if (pr)  state.provider      = pr;
+
+  // Sync UI
+  updateSwitcherPills();
+  updateSwitcherModelLabel();
 }
 
 /* =========================================================
@@ -648,8 +721,63 @@ function cropSelectionToBase64() {
 }
 
 /* =========================================================
+   MODEL SWITCHER
+   ========================================================= */
+
+function updateSwitcherPills() {
+  [el.switchGemini, el.switchGroq, el.switchMistral].forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.provider === state.provider);
+  });
+}
+
+function updateSwitcherModelLabel() {
+  const labels = {
+    gemini:  state.geminiModel,
+    groq:    state.groqModel,
+    mistral: state.mistralModel,
+  };
+  el.activeModelName.textContent = labels[state.provider] || '';
+}
+
+[el.switchGemini, el.switchGroq, el.switchMistral].forEach(btn => {
+  btn.addEventListener('click', () => {
+    const newProvider = btn.dataset.provider;
+    if (newProvider === state.provider) return;
+
+    // Save current provider's state into cache
+    if (state.isSolved) {
+      state.answerCache[state.provider] = {
+        rawResponse:  state.rawResponse,
+        chatHistory:  [...state.chatHistory],
+        solutionHTML: el.solutionContent.innerHTML,
+      };
+    }
+
+    state.provider = newProvider;
+    localStorage.setItem('mathai-provider', newProvider);
+    updateSwitcherPills();
+    updateSwitcherModelLabel();
+
+    // Check if we have a cached answer for this provider
+    const cached = state.answerCache[newProvider];
+    if (cached && state.isSolved) {
+      // Restore cached answer
+      state.rawResponse  = cached.rawResponse;
+      state.chatHistory  = cached.chatHistory;
+      el.solutionContent.innerHTML = cached.solutionHTML;
+      setSolutionState('content');
+      enableOutputBtns();
+      showToast(`↩ Restored ${newProvider} answer from cache`);
+    } else if (state.isSolved) {
+      // Need to re-solve with new provider
+      showToast(`Switching to ${newProvider} — re-analyzing…`);
+      solveSelection();
+    }
+  });
+});
+
 /* =========================================================
-   AI SOLVE — Gemini API Interaction
+   AI SOLVE — Main dispatcher
    ========================================================= */
 
 const SYSTEM_PROMPT = `You are an expert Math AI Tutor. Solve the question presented in the image.
@@ -686,8 +814,17 @@ async function solveSelection() {
     showToast('Draw a selection first.');
     return;
   }
-  if (!state.apiKey) {
-    showToast('⚙️ Add your Gemini API key in Settings first.');
+
+  // Validate provider has an API key
+  const providerKey = {
+    gemini:  state.apiKey,
+    groq:    state.groqApiKey,
+    mistral: state.mistralApiKey,
+  }[state.provider];
+
+  if (!providerKey) {
+    const names = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral' };
+    showToast(`⚙️ Add your ${names[state.provider]} API key in Settings first.`);
     openSettings();
     return;
   }
@@ -701,31 +838,56 @@ async function solveSelection() {
   setSolutionState('loading');
   disableOutputBtns();
   el.chatContainer.classList.add('hidden');
+  const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral' };
+  el.loadingSubText.textContent = `${providerNames[state.provider]} is analyzing your selection…`;
   setHint('Solving…');
 
-  state.chatHistory = [
-    {
-      role: 'user',
-      parts: [
-        { text: SYSTEM_PROMPT },
-        { inlineData: { mimeType: 'image/png', data: base64 } }
-      ]
-    }
-  ];
-
   try {
-    const response = await callGeminiChat(state.chatHistory, state.apiKey, state.model);
+    let response;
+
+    if (state.provider === 'gemini') {
+      state.chatHistory = [
+        {
+          role: 'user',
+          parts: [
+            { text: SYSTEM_PROMPT },
+            { inlineData: { mimeType: 'image/png', data: base64 } }
+          ]
+        }
+      ];
+      response = await callGeminiChat(state.chatHistory, state.apiKey, state.geminiModel);
+    } else if (state.provider === 'groq') {
+      response = await callGroqChat(base64, state.groqApiKey, state.groqModel);
+      state.chatHistory = [
+        { role: 'user',      content: SYSTEM_PROMPT + '\n[Image provided]' },
+        { role: 'assistant', content: response }
+      ];
+    } else if (state.provider === 'mistral') {
+      response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel);
+      state.chatHistory = [
+        { role: 'user',      content: SYSTEM_PROMPT + '\n[Image provided]' },
+        { role: 'assistant', content: response }
+      ];
+    }
+
     state.rawResponse = response;
-    state.chatHistory.push({ role: 'model', parts: [{ text: response }] });
     state.isSolved = true;
+    // Cache this answer
+    state.answerCache[state.provider] = {
+      rawResponse:  response,
+      chatHistory:  [...state.chatHistory],
+      solutionHTML: null, // set after render
+    };
     renderSolution(response);
+    // Store rendered HTML in cache
+    state.answerCache[state.provider].solutionHTML = el.solutionContent.innerHTML;
     enableOutputBtns();
     setHint('Done! Drag a new selection or ask a follow-up question below.');
     el.chatContainer.classList.remove('hidden');
   } catch (err) {
     setSolutionState('empty');
     showToast('❌ ' + (err.message || 'AI request failed.'));
-    console.error('Gemini error:', err);
+    console.error('AI error:', err);
     setHint('Something went wrong. Try again.');
   }
 }
@@ -742,14 +904,38 @@ async function sendFollowUp() {
   el.chatInput.value = '';
 
   appendUserMessage(text);
-  state.chatHistory.push({ role: 'user', parts: [{ text }] });
+
+  const providerKey = {
+    gemini:  state.apiKey,
+    groq:    state.groqApiKey,
+    mistral: state.mistralApiKey,
+  }[state.provider];
 
   disableOutputBtns();
   try {
-    const response = await callGeminiChat(state.chatHistory, state.apiKey, state.model);
-    state.chatHistory.push({ role: 'model', parts: [{ text: response }] });
-    state.rawResponse += '\n\n' + response; // For copy all button
+    let response;
+    if (state.provider === 'gemini') {
+      state.chatHistory.push({ role: 'user', parts: [{ text }] });
+      response = await callGeminiChat(state.chatHistory, providerKey, state.geminiModel);
+      state.chatHistory.push({ role: 'model', parts: [{ text: response }] });
+    } else if (state.provider === 'groq') {
+      state.chatHistory.push({ role: 'user', content: text });
+      response = await callGroqFollowUp(state.chatHistory, providerKey, state.groqModel);
+      state.chatHistory.push({ role: 'assistant', content: response });
+    } else if (state.provider === 'mistral') {
+      state.chatHistory.push({ role: 'user', content: text });
+      response = await callMistralFollowUp(state.chatHistory, providerKey, state.mistralModel);
+      state.chatHistory.push({ role: 'assistant', content: response });
+    }
+
+    state.rawResponse += '\n\n' + response;
     appendAIMessage(response);
+    // Update cache
+    if (state.answerCache[state.provider]) {
+      state.answerCache[state.provider].rawResponse  = state.rawResponse;
+      state.answerCache[state.provider].chatHistory  = [...state.chatHistory];
+      state.answerCache[state.provider].solutionHTML = el.solutionContent.innerHTML;
+    }
   } catch (err) {
     showToast('❌ Follow-up request failed.');
     console.error(err);
@@ -788,6 +974,169 @@ async function callGeminiChat(contents, apiKey, model) {
   const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
   if (!text) throw new Error('Empty response from Gemini.');
   return text;
+}
+
+/**
+ * Groq vision/text call — sends image as base64 in the content
+ */
+async function callGroqChat(base64, apiKey, model) {
+  const url = 'https://api.groq.com/openai/v1/chat/completions';
+
+  // Determine if this model likely supports vision
+  const visionModels = ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct'];
+  const supportsVision = visionModels.includes(model);
+
+  let messages;
+  if (supportsVision) {
+    messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: SYSTEM_PROMPT },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } }
+        ]
+      }
+    ];
+  } else {
+    // Text-only fallback — describe the image ourselves via Gemini won't work,
+    // so we embed the base64 image URL style
+    messages = [
+      {
+        role: 'user',
+        content: [
+          { type: 'text', text: SYSTEM_PROMPT },
+          { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } }
+        ]
+      }
+    ];
+  }
+
+  const body = {
+    model,
+    messages,
+    temperature:     0.25,
+    max_tokens:      8192,
+  };
+
+  const res = await fetch(url, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Groq HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error('Empty response from Groq.');
+  return text;
+}
+
+/**
+ * Groq follow-up (text-only conversation)
+ */
+async function callGroqFollowUp(messages, apiKey, model) {
+  const url = 'https://api.groq.com/openai/v1/chat/completions';
+  const body = { model, messages, temperature: 0.25, max_tokens: 8192 };
+
+  const res = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body:    JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Groq HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content || '';
+}
+
+/**
+ * Mistral vision call — Pixtral models support vision
+ */
+async function callMistralChat(base64, apiKey, model) {
+  const url = 'https://api.mistral.ai/v1/chat/completions';
+
+  // Pixtral models support vision
+  const visionModels = ['pixtral-large-latest', 'pixtral-12b-2409'];
+  const supportsVision = visionModels.includes(model);
+
+  let content;
+  if (supportsVision) {
+    content = [
+      { type: 'text', text: SYSTEM_PROMPT },
+      { type: 'image_url', image_url: `data:image/png;base64,${base64}` }
+    ];
+  } else {
+    // For text-only Mistral models, we can still pass image_url format
+    // (Mistral API handles it gracefully or ignores non-vision-capable parts)
+    content = [
+      { type: 'text', text: SYSTEM_PROMPT },
+      { type: 'image_url', image_url: `data:image/png;base64,${base64}` }
+    ];
+  }
+
+  const body = {
+    model,
+    messages: [{ role: 'user', content }],
+    temperature: 0.25,
+    max_tokens:  8192,
+  };
+
+  const res = await fetch(url, {
+    method:  'POST',
+    headers: {
+      'Content-Type':  'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Mistral HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content;
+  if (!text) throw new Error('Empty response from Mistral.');
+  return text;
+}
+
+/**
+ * Mistral follow-up (text conversation)
+ */
+async function callMistralFollowUp(messages, apiKey, model) {
+  const url = 'https://api.mistral.ai/v1/chat/completions';
+  // Convert content arrays to strings for follow-up
+  const cleanMessages = messages.map(m => ({
+    role: m.role,
+    content: Array.isArray(m.content)
+      ? m.content.filter(c => c.type === 'text').map(c => c.text).join(' ')
+      : m.content,
+  }));
+  const body = { model, messages: cleanMessages, temperature: 0.25, max_tokens: 8192 };
+
+  const res = await fetch(url, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body:    JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error?.message || `Mistral HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data?.choices?.[0]?.message?.content || '';
 }
 
 /* =========================================================

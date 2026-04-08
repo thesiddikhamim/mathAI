@@ -367,7 +367,10 @@ function handleFile(file) {
     loadImage(file);
   }
 
-  setHint('Drag on the image to select a question, then click Solve');
+  setHint(isMobile()
+    ? 'Tap the "Select" tab to choose a question region'
+    : 'Drag on the image to select a question, then click Solve'
+  );
 }
 
 function resetFile() {
@@ -387,6 +390,10 @@ function resetFile() {
 
 function setHint(msg) {
   el.hintText.textContent = msg;
+}
+
+function isMobile() {
+  return window.matchMedia('(max-width: 768px)').matches;
 }
 
 /* =========================================================
@@ -562,7 +569,7 @@ function onMouseUp() {
     } else {
       sel.active = true;
       renderSelection();
-      setHint('Adjust the selection, then click Solve');
+  setHint(isMobile() ? 'Drag the box to resize — tap Solve ⚡ when ready' : 'Adjust the selection, then click Solve');
     }
   }
   if (sel.mode === 'move') {
@@ -907,8 +914,13 @@ async function solveSelection() {
     // Store rendered HTML in cache
     state.answerCache[state.provider].solutionHTML = el.solutionContent.innerHTML;
     enableOutputBtns();
-    setHint('Done! Drag a new selection or ask a follow-up question below.');
+    setHint('Done! ' + (isMobile() ? 'Switch to Solution tab to see the answer.' : 'Drag a new selection or ask a follow-up question below.'));
     el.chatContainer.classList.remove('hidden');
+    // Auto-navigate to solution on mobile
+    if (isMobile()) {
+      const tabSol = document.getElementById('tabSolution');
+      if (tabSol) tabSol.click();
+    }
   } catch (err) {
     setSolutionState('empty');
     showToast('❌ ' + (err.message || 'AI request failed.'));
@@ -1370,6 +1382,317 @@ document.addEventListener('keydown', e => {
     if (sel.active) solveSelection();
   }
 });
+
+/* =========================================================
+   MOBILE — Tab Bar, Touch Selection, FAB
+   ========================================================= */
+
+(function initMobile() {
+  const tabViewer       = $('tabViewer');
+  const tabSelect       = $('tabSelectRegion');
+  const tabSolution     = $('tabSolution');
+  const mobileSolveBtn  = $('mobileSolveBtn');
+  const touchBanner     = $('touchSelectBanner');
+  const touchCancelBtn  = $('touchCancelBtn');
+  const leftPanel       = $('leftPanel');
+  const rightPanel      = $('rightPanel');
+
+  if (!tabViewer) return; // Safety in case elements are missing
+
+  /* ── Panel switching ─────────────────────────────────── */
+  let activeTab = 'viewer'; // 'viewer' | 'solution'
+
+  function showPanel(tab) {
+    activeTab = tab;
+
+    // Update tab active states
+    tabViewer.classList.toggle('active',   tab === 'viewer');
+    tabSolution.classList.toggle('active', tab === 'solution');
+    tabSelect.classList.toggle('active',   tab === 'select');
+
+    // Show/hide panels
+    if (tab === 'solution') {
+      leftPanel.classList.add('panel-hidden');
+      rightPanel.classList.remove('panel-hidden');
+      mobileSolveBtn.classList.add('hidden');
+    } else {
+      // viewer or select mode
+      rightPanel.classList.add('panel-hidden');
+      leftPanel.classList.remove('panel-hidden');
+    }
+
+    // Show FAB if there's an active selection and we're on viewer/select tab
+    updateFabVisibility();
+  }
+
+  function updateFabVisibility() {
+    if (!isMobile()) return;
+    const onViewerTab = (activeTab === 'viewer' || activeTab === 'select');
+    if (onViewerTab && sel.active) {
+      mobileSolveBtn.classList.remove('hidden');
+    } else {
+      mobileSolveBtn.classList.add('hidden');
+    }
+  }
+
+  tabViewer.addEventListener('click', () => showPanel('viewer'));
+  tabSolution.addEventListener('click', () => showPanel('solution'));
+
+  /* ── "Select" tab: activate touch crop mode ──────────── */
+  tabSelect.addEventListener('click', () => {
+    if (!state.file) {
+      showToast('Upload an image or PDF first.');
+      showPanel('viewer');
+      return;
+    }
+    showPanel('viewer');
+    activateTouchSelectMode();
+  });
+
+  /* ── Touch Select Mode ───────────────────────────────── */
+  let touchSelectActive = false;
+
+  function activateTouchSelectMode() {
+    if (touchSelectActive) return;
+    touchSelectActive = true;
+    tabSelect.classList.add('active');
+
+    // Place initial selection box in the center (50% of overlay)
+    const ov = el.selOverlay.getBoundingClientRect();
+    const W  = ov.width;
+    const H  = ov.height;
+
+    // Default box: centered, 60% wide, 30% tall
+    sel.w = Math.round(W * 0.60);
+    sel.h = Math.round(H * 0.30);
+    sel.x = Math.round((W - sel.w) / 2);
+    sel.y = Math.round((H - sel.h) / 2);
+    sel.active = true;
+
+    el.selBox.classList.remove('hidden');
+    renderSelection();
+    setHint('Drag the blue box to cover your question, then tap Solve');
+    if (touchBanner) {
+      touchBanner.style.display = 'flex';
+    }
+
+    updateFabVisibility();
+  }
+
+  function deactivateTouchSelectMode() {
+    touchSelectActive = false;
+    tabSelect.classList.remove('active');
+    if (touchBanner) touchBanner.style.display = 'none';
+    setHint('Tap "Select" to choose a question region');
+    clearSelection();
+    updateFabVisibility();
+  }
+
+  if (touchCancelBtn) {
+    touchCancelBtn.addEventListener('click', () => {
+      deactivateTouchSelectMode();
+      showPanel('viewer');
+    });
+  }
+
+  /* ── Mobile FAB → Solve ──────────────────────────────── */
+  mobileSolveBtn.addEventListener('click', () => {
+    if (!sel.active) {
+      activateTouchSelectMode();
+      return;
+    }
+    solveSelection();
+    // After solve starts, switch to solution tab
+    setTimeout(() => showPanel('solution'), 300);
+  });
+
+  /* ── Touch / Pointer events for selection overlay ───── */
+  // We add pointer events so touch drag-to-select works without
+  // requiring a mouse. These coexist with the mouse events above.
+
+  let ptActive = false;
+
+  el.selOverlay.addEventListener('pointerdown', e => {
+    if (!isMobile()) return;
+    if (e.pointerType === 'mouse') return; // mouse handled separately
+    if (!state.file) return;
+
+    e.preventDefault();
+    el.selOverlay.setPointerCapture(e.pointerId);
+
+    if (state.isSolved) {
+      state.isSolved = false;
+      setSolutionState('empty');
+      el.chatContainer.classList.add('hidden');
+    }
+
+    const rect  = el.selOverlay.getBoundingClientRect();
+    ptActive    = true;
+    sel.mode    = 'draw';
+    sel.startX  = e.clientX - rect.left;
+    sel.startY  = e.clientY - rect.top;
+    sel.x = sel.startX;
+    sel.y = sel.startY;
+    sel.w = 0;
+    sel.h = 0;
+    sel.active = false;
+    el.selBox.classList.add('hidden');
+    hideMasks();
+  }, { passive: false });
+
+  el.selOverlay.addEventListener('pointermove', e => {
+    if (!ptActive || !isMobile()) return;
+    if (e.pointerType === 'mouse') return;
+    e.preventDefault();
+    const rect = el.selOverlay.getBoundingClientRect();
+    if (sel.mode === 'draw') {
+      const mx = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+      const my = Math.min(Math.max(e.clientY - rect.top,  0), rect.height);
+      sel.x = Math.min(mx, sel.startX);
+      sel.y = Math.min(my, sel.startY);
+      sel.w = Math.abs(mx - sel.startX);
+      sel.h = Math.abs(my - sel.startY);
+      if (sel.w > 5 || sel.h > 5) {
+        sel.active = true;
+        el.selBox.classList.remove('hidden');
+        renderSelection();
+      }
+    } else if (sel.mode === 'move') {
+      const dx = e.clientX - sel.startX;
+      const dy = e.clientY - sel.startY;
+      sel.x = Math.max(0, Math.min(sel.origX + dx, rect.width  - sel.w));
+      sel.y = Math.max(0, Math.min(sel.origY + dy, rect.height - sel.h));
+      renderSelection();
+    } else if (sel.mode === 'resize') {
+      const dx = e.clientX - sel.startX;
+      const dy = e.clientY - sel.startY;
+      resizeFromHandle(sel.handle, dx, dy, rect);
+      renderSelection();
+    }
+  }, { passive: false });
+
+  el.selOverlay.addEventListener('pointerup', e => {
+    if (!ptActive || !isMobile()) return;
+    if (e.pointerType === 'mouse') return;
+    ptActive = false;
+    if (sel.mode === 'draw') {
+      if (sel.w < MIN_SEL || sel.h < MIN_SEL) {
+        clearSelection();
+      } else {
+        sel.active = true;
+        renderSelection();
+        setHint('Good! Tap "Solve ⚡" to get the solution');
+      }
+    }
+    sel.mode   = null;
+    sel.handle = null;
+    updateFabVisibility();
+  });
+
+  // Touch move/resize on sel-box (for mobile selecting existing box)
+  el.selBox.addEventListener('pointerdown', e => {
+    if (!isMobile()) return;
+    if (e.pointerType === 'mouse') return;
+    if (e.target.classList.contains('sel-handle')) return;
+    e.stopPropagation();
+    e.preventDefault();
+    el.selBox.setPointerCapture(e.pointerId);
+    sel.mode    = 'move';
+    sel.startX  = e.clientX;
+    sel.startY  = e.clientY;
+    sel.origX   = sel.x;
+    sel.origY   = sel.y;
+  }, { passive: false });
+
+  el.selBox.addEventListener('pointermove', e => {
+    if (!isMobile() || sel.mode !== 'move') return;
+    if (e.pointerType === 'mouse') return;
+    e.preventDefault();
+    const rect = el.selOverlay.getBoundingClientRect();
+    const dx   = e.clientX - sel.startX;
+    const dy   = e.clientY - sel.startY;
+    sel.x = Math.max(0, Math.min(sel.origX + dx, rect.width  - sel.w));
+    sel.y = Math.max(0, Math.min(sel.origY + dy, rect.height - sel.h));
+    renderSelection();
+  }, { passive: false });
+
+  el.selBox.addEventListener('pointerup', e => {
+    if (!isMobile()) return;
+    if (e.pointerType === 'mouse') return;
+    sel.mode = null;
+  });
+
+  // Touch resize handles
+  el.selBox.querySelectorAll('.sel-handle').forEach(h => {
+    h.addEventListener('pointerdown', e => {
+      if (!isMobile()) return;
+      if (e.pointerType === 'mouse') return;
+      e.stopPropagation();
+      e.preventDefault();
+      h.setPointerCapture(e.pointerId);
+      sel.mode   = 'resize';
+      sel.handle = h.dataset.dir;
+      sel.startX = e.clientX;
+      sel.startY = e.clientY;
+      sel.origX  = sel.x;
+      sel.origY  = sel.y;
+      sel.origW  = sel.w;
+      sel.origH  = sel.h;
+    }, { passive: false });
+
+    h.addEventListener('pointermove', e => {
+      if (!isMobile() || sel.mode !== 'resize') return;
+      if (e.pointerType === 'mouse') return;
+      e.preventDefault();
+      const rect = el.selOverlay.getBoundingClientRect();
+      resizeFromHandle(sel.handle, e.clientX - sel.startX, e.clientY - sel.startY, rect);
+      renderSelection();
+    }, { passive: false });
+
+    h.addEventListener('pointerup', e => {
+      if (!isMobile()) return;
+      if (e.pointerType === 'mouse') return;
+      sel.mode = null;
+      updateFabVisibility();
+    });
+  });
+
+  /* ── After file loaded: auto-switch to viewer tab ───── */
+  const _origHandleFile = handleFile;
+  // Patch hint on handleFile completion for mobile
+  const _origSetHint = setHint;
+
+  /* ── After solve: switch to solution tab on mobile ───── */
+  // Wrap solveSelection to auto-navigate on mobile
+  const _origSolve = window.solveSelection;
+
+  /* ── Window resize: reset panel visibility on desktop ── */
+  window.addEventListener('resize', () => {
+    if (!isMobile()) {
+      leftPanel.classList.remove('panel-hidden');
+      rightPanel.classList.remove('panel-hidden');
+      mobileSolveBtn.classList.add('hidden');
+    } else {
+      // Re-apply current tab
+      showPanel(activeTab);
+    }
+  });
+
+  /* ── Update FAB whenever selection changes ───────────── */
+  // Hook into existing clearSelection
+  const _origClear = clearSelection;
+  window.clearSelection = function() {
+    _origClear();
+    updateFabVisibility();
+    if (isMobile() && touchSelectActive) {
+      touchSelectActive = false;
+      if (touchBanner) touchBanner.style.display = 'none';
+      tabSelect.classList.remove('active');
+      tabViewer.classList.add('active');
+    }
+  };
+
+})();
 
 /* =========================================================
    INIT

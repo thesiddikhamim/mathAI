@@ -185,6 +185,7 @@ body {
   height: calc(100vh - var(--header-h));
   margin-top: var(--header-h);
   overflow: hidden;
+  position: relative;
 }
 
 /* ── Panels ─────────────────────────────────────────────── */
@@ -922,17 +923,177 @@ body {
 .solution-content h2 { page-break-before: auto; page-break-after: avoid; }
 .solution-content p, .solution-content ul, .solution-content ol { page-break-inside: avoid; }
 
+/* ============================================================
+   MOBILE TAB BAR
+   ============================================================ */
+.mobile-tab-bar {
+  display: none;
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 150;
+  background: var(--bg-secondary);
+  border-top: 1px solid var(--border);
+  padding: 6px 16px calc(6px + env(safe-area-inset-bottom));
+  gap: 8px;
+  box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+}
+.tab-btn {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 8px 4px;
+  border: none; background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font); font-size: 10px; font-weight: 600;
+  letter-spacing: 0.3px; text-transform: uppercase;
+  cursor: pointer; border-radius: var(--radius-md);
+  transition: all var(--tr);
+}
+.tab-btn svg { width: 22px; height: 22px; }
+.tab-btn.active {
+  color: var(--accent);
+  background: var(--accent-lt);
+}
+.tab-btn.active svg { stroke: var(--accent); }
+
+/* Mobile solve FAB */
+.mobile-solve-fab {
+  display: none;
+  position: fixed;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  right: 18px;
+  z-index: 140;
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  box-shadow: 0 4px 20px var(--accent-glow), 0 2px 8px rgba(0,0,0,0.15);
+  cursor: pointer;
+  align-items: center; justify-content: center;
+  transition: all var(--tr);
+  font-size: 24px;
+}
+.mobile-solve-fab:active { transform: scale(0.92); }
+.mobile-solve-fab svg { width: 24px; height: 24px; }
+.mobile-solve-fab.hidden { display: none !important; }
+
+/* Touch selection mode banner */
+.touch-select-banner {
+  display: none;
+  align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, var(--accent), hsl(var(--accent-h), 82%, 45%));
+  color: #fff;
+  font-size: 13px; font-weight: 600;
+  flex-shrink: 0;
+}
+.touch-select-banner svg { width: 16px; height: 16px; flex-shrink: 0; }
+.touch-select-banner .banner-cancel {
+  margin-left: auto;
+  background: rgba(255,255,255,0.25);
+  border: none; color: #fff;
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* Larger touch handles for mobile */
+@media (hover: none) and (pointer: coarse) {
+  .sel-handle {
+    width: 20px !important;
+    height: 20px !important;
+    border-width: 3px !important;
+  }
+}
+
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {
+  /* Header */
+  .header {
+    padding: 0 14px;
+  }
   .header-tagline { display: none; }
-  body, .main-layout { overflow: auto; height: auto; }
-  .main-layout { flex-direction: column; }
-  .panel-left, .panel-right { flex: none; width: 100%; min-height: 50vh; }
-  .panel-divider { width: 100%; height: 5px; cursor: row-resize; }
-  .solution-body { max-height: 65vh; overflow-y: auto; }
-  .viewer-body   { min-height: 40vh; }
+  .logo-text { font-size: 16px; }
+
+  /* Body / Layout */
+  body { overflow: hidden; }
+  .main-layout {
+    flex-direction: column;
+    height: calc(100dvh - var(--header-h) - 64px); /* 64px = tab bar */
+    overflow: hidden;
+  }
+
+  /* Panels */
+  .panel-left, .panel-right {
+    flex: none;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+  }
+  .panel.panel-hidden {
+    opacity: 0;
+    pointer-events: none;
+    transform: translateX(6px);
+  }
+  .panel-divider { display: none; }
+
+  /* Tab bar */
+  .mobile-tab-bar { display: flex; }
+
+  /* Mobile FAB */
+  .mobile-solve-fab { display: flex; }
+
+  /* Solution header: stack pills + actions */
+  .solution-header {
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .model-switcher-inline {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .switcher-pills { flex-wrap: wrap; gap: 4px; }
+  .switcher-pill { font-size: 11.5px; padding: 4px 10px; }
+  .switcher-model-name { display: none; }
+  .solution-header-actions { gap: 4px; }
+  .solution-header-actions .btn-sm { font-size: 11px; padding: 4px 8px; }
+
+  /* Viewer body */
+  .viewer-body {
+    padding: 12px;
+  }
+
+  /* Upload zone */
+  .upload-content { padding: 28px 16px; }
+  .upload-icon-wrap { width: 58px; height: 58px; }
+  .upload-title { font-size: 14px; }
+
+  /* Hint bar */
+  .hint-bar { font-size: 11px; padding: 7px 12px; }
+
+  /* Touch select banner show on mobile */
+  .touch-select-banner { display: flex; }
+
+  /* Solution body scrollable */
+  .solution-body { flex: 1; overflow-y: auto; }
+
+  /* Toast higher up (above tab bar) */
+  .toast { bottom: calc(80px + env(safe-area-inset-bottom)); }
+
+  /* Chat container: pad above tab bar */
+  .chat-container { padding-bottom: calc(14px + env(safe-area-inset-bottom)); }
+
+  /* File header: compact */
+  .file-header { padding: 8px 10px; }
+  .file-name { max-width: 120px; font-size: 12px; }
 }
 
 @media (max-width: 480px) {
-  .solution-header-actions .btn-sm:not(#copyBtn) { display: none; }
+  .solution-header-actions #downloadBtn,
+  .solution-header-actions #copyLatexBtn { display: none; }
 }

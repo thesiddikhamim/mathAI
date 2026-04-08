@@ -442,27 +442,48 @@
     <section class="panel panel-right" id="rightPanel" aria-label="AI solution">
 
       <div class="solution-header sticky-header">
-        <div class="model-switcher-inline">
-          <div class="switcher-pills">
-            <button id="switchGemini" class="switcher-pill active" data-provider="gemini">
-              <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/gemini.svg" class="pill-logo" alt="Gemini">
-              Gemini
-            </button>
-            <button id="switchMistral" class="switcher-pill" data-provider="mistral">
-              <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/mistral.svg" class="pill-logo" alt="Mistral">
-              Mistral
-            </button>
-            <button id="switchGroq" class="switcher-pill" data-provider="groq">
-              <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/groq.svg" class="pill-logo" alt="Groq">
-              Groq
-            </button>
-            <button id="switchOllama" class="switcher-pill" data-provider="ollama">
-              <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/ollama.svg" class="pill-logo" alt="Ollama">
-              Ollama
-            </button>
+        <div class="model-carousel-wrapper">
+          <div class="model-carousel" id="modelCarousel">
+            <div class="model-card active" data-provider="gemini">
+              <div class="card-icon-wrap">
+                <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/gemini.svg" class="card-logo" alt="Gemini">
+              </div>
+              <div class="card-info">
+                <span class="card-label">Gemini</span>
+                <span class="card-sublabel" id="labelGemini">gemini-2.1-pro</span>
+              </div>
+            </div>
 
+            <div class="model-card" data-provider="mistral">
+              <div class="card-icon-wrap">
+                <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/mistral.svg" class="card-logo" alt="Mistral">
+              </div>
+              <div class="card-info">
+                <span class="card-label">Mistral</span>
+                <span class="card-sublabel" id="labelMistral">mistral-large</span>
+              </div>
+            </div>
+
+            <div class="model-card" data-provider="groq">
+              <div class="card-icon-wrap">
+                <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/groq.svg" class="card-logo" alt="Groq">
+              </div>
+              <div class="card-info">
+                <span class="card-label">Groq</span>
+                <span class="card-sublabel" id="labelGroq">llama-4-scout</span>
+              </div>
+            </div>
+
+            <div class="model-card" data-provider="ollama">
+              <div class="card-icon-wrap">
+                <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/ollama.svg" class="card-logo" alt="Ollama">
+              </div>
+              <div class="card-info">
+                <span class="card-label">Ollama</span>
+                <span class="card-sublabel" id="labelOllama">gemma-4</span>
+              </div>
+            </div>
           </div>
-          <span class="switcher-model-name" id="activeModelName">gemini-2.5-pro</span>
         </div>
 
         <div class="solution-header-actions">
@@ -539,7 +560,7 @@
 
       <!-- Chat Input (hidden until solved) -->
       <div id="chatContainer" class="chat-container hidden">
-        <input type="text" id="chatInput" class="text-input" placeholder="Ask a follow-up question..." autocomplete="off" />
+        <input type="text" id="chatInput" name="mathAIQuery" class="text-input" placeholder="Ask a follow-up question..." autocomplete="off" />
         <button id="chatSendBtn" class="btn btn-primary" title="Send" aria-label="Send message">
           <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="22" y1="2" x2="11" y2="13"/>

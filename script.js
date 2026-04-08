@@ -90,12 +90,12 @@ const el = {
   emptySubText:   $('emptySubText'),
   solutionContent: $('solutionContent'),
 
-  // Model switcher
-  switchGemini:    $('switchGemini'),
-  switchGroq:      $('switchGroq'),
-  switchMistral:   $('switchMistral'),
-  switchOllama:    $('switchOllama'),
-  activeModelName: $('activeModelName'),
+  // Carousel Switcher
+  modelCarousel:   $('modelCarousel'),
+  labelGemini:     $('labelGemini'),
+  labelMistral:    $('labelMistral'),
+  labelGroq:       $('labelGroq'),
+  labelOllama:     $('labelOllama'),
 
   // Chat
   chatContainer:$('chatContainer'),
@@ -795,25 +795,28 @@ function cropSelectionToBase64() {
    ========================================================= */
 
 function updateSwitcherPills() {
-  [el.switchGemini, el.switchGroq, el.switchMistral, el.switchOllama].forEach(btn => {
-    if (btn) btn.classList.toggle('active', btn.dataset.provider === state.provider);
+  const cards = el.modelCarousel.querySelectorAll('.model-card');
+  cards.forEach(card => {
+    const isActive = card.dataset.provider === state.provider;
+    card.classList.toggle('active', isActive);
+    if (isActive) {
+      // Scroll into view if not visible
+      card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+    }
   });
 }
 
 function updateSwitcherModelLabel() {
-  const labels = {
-    gemini:  state.geminiModel,
-    groq:    state.groqModel,
-    mistral: state.mistralModel,
-    ollama:  state.ollamaModel,
-  };
-  el.activeModelName.textContent = labels[state.provider] || '';
+  if (el.labelGemini)  el.labelGemini.textContent  = state.geminiModel;
+  if (el.labelGroq)    el.labelGroq.textContent    = state.groqModel.split('/').pop();
+  if (el.labelMistral) el.labelMistral.textContent = state.mistralModel;
+  if (el.labelOllama)  el.labelOllama.textContent  = state.ollamaModel.split(':')[0];
 }
 
-[el.switchGemini, el.switchGroq, el.switchMistral, el.switchOllama].forEach(btn => {
-  if (!btn) return;
-  btn.addEventListener('click', () => {
-    const newProvider = btn.dataset.provider;
+// Handle carousel interactions
+el.modelCarousel.querySelectorAll('.model-card').forEach(card => {
+  card.addEventListener('click', () => {
+    const newProvider = card.dataset.provider;
     if (newProvider === state.provider) return;
 
     // Save current provider's state into cache
@@ -833,15 +836,13 @@ function updateSwitcherModelLabel() {
     // Check if we have a cached answer for this provider
     const cached = state.answerCache[newProvider];
     if (cached && state.isSolved) {
-      // Restore cached answer
       state.rawResponse  = cached.rawResponse;
       state.chatHistory  = cached.chatHistory;
       el.solutionContent.innerHTML = cached.solutionHTML;
       setSolutionState('content');
       enableOutputBtns();
-      showToast(`↩ Restored ${newProvider} answer from cache`);
+      showToast(`↩ Restored ${newProvider} answer`);
     } else if (state.isSolved) {
-      // Need to re-solve with new provider
       showToast(`Switching to ${newProvider} — re-analyzing…`);
       el.errorActions.classList.add('hidden');
       solveSelection();

@@ -625,37 +625,43 @@ el.selBox.querySelectorAll('.sel-handle').forEach(h => {
  * Apply the current sel.x/y/w/h to the DOM.
  */
 function renderSelection() {
-  const { x, y, w, h } = sel;
+  if (renderSelection._pending) return;
+  renderSelection._pending = true;
 
-  // Position the selection box
-  Object.assign(el.selBox.style, {
-    left:   x + 'px',
-    top:    y + 'px',
-    width:  w + 'px',
-    height: h + 'px',
+  requestAnimationFrame(() => {
+    renderSelection._pending = false;
+    const { x, y, w, h } = sel;
+
+    // Position the selection box
+    Object.assign(el.selBox.style, {
+      left:   x + 'px',
+      top:    y + 'px',
+      width:  w + 'px',
+      height: h + 'px',
+    });
+
+    // Update dark masks
+    const ov = el.selOverlay.getBoundingClientRect();
+    const W  = ov.width;
+    const H  = ov.height;
+
+    Object.assign(el.maskTop.style,    { top: '0', left: '0', width: W+'px', height: y+'px' });
+    Object.assign(el.maskBottom.style, { top: (y+h)+'px', left: '0', width: W+'px', height: (H-y-h)+'px' });
+    Object.assign(el.maskLeft.style,   { top: y+'px', left: '0', width: x+'px', height: h+'px' });
+    Object.assign(el.maskRight.style,  { top: y+'px', left: (x+w)+'px', width: (W-x-w)+'px', height: h+'px' });
+
+    // Show masks
+    [el.maskTop, el.maskBottom, el.maskLeft, el.maskRight].forEach(m => {
+      m.style.display = 'block';
+    });
+
+    // Update dimension label
+    updateDimLabel();
+
+    // Flip toolbar if near bottom
+    const nearBottom = (y + h + 60) > H;
+    el.selBox.classList.toggle('toolbar-above', nearBottom);
   });
-
-  // Update dark masks
-  const ov = el.selOverlay.getBoundingClientRect();
-  const W  = ov.width;
-  const H  = ov.height;
-
-  Object.assign(el.maskTop.style,    { top: '0', left: '0', width: W+'px', height: y+'px' });
-  Object.assign(el.maskBottom.style, { top: (y+h)+'px', left: '0', width: W+'px', height: (H-y-h)+'px' });
-  Object.assign(el.maskLeft.style,   { top: y+'px', left: '0', width: x+'px', height: h+'px' });
-  Object.assign(el.maskRight.style,  { top: y+'px', left: (x+w)+'px', width: (W-x-w)+'px', height: h+'px' });
-
-  // Show masks
-  [el.maskTop, el.maskBottom, el.maskLeft, el.maskRight].forEach(m => {
-    m.style.display = 'block';
-  });
-
-  // Update dimension label
-  updateDimLabel();
-
-  // Flip toolbar if near bottom
-  const nearBottom = (y + h + 60) > H;
-  el.selBox.classList.toggle('toolbar-above', nearBottom);
 }
 
 function updateDimLabel() {
@@ -1537,6 +1543,7 @@ document.addEventListener('keydown', e => {
     sel.h = 0;
     sel.active = false;
     el.selBox.classList.add('hidden');
+    el.selBox.classList.add('dragging');
     hideMasks();
   }, { passive: false });
 
@@ -1586,6 +1593,7 @@ document.addEventListener('keydown', e => {
     }
     sel.mode   = null;
     sel.handle = null;
+    el.selBox.classList.remove('dragging');
     updateFabVisibility();
   });
 
@@ -1597,6 +1605,8 @@ document.addEventListener('keydown', e => {
     e.stopPropagation();
     e.preventDefault();
     el.selBox.setPointerCapture(e.pointerId);
+    el.selBox.classList.add('dragging');
+    if (navigator.vibrate) navigator.vibrate(10);
     sel.mode    = 'move';
     sel.startX  = e.clientX;
     sel.startY  = e.clientY;
@@ -1619,6 +1629,7 @@ document.addEventListener('keydown', e => {
   el.selBox.addEventListener('pointerup', e => {
     if (!isMobile()) return;
     if (e.pointerType === 'mouse') return;
+    el.selBox.classList.remove('dragging');
     sel.mode = null;
   });
 
@@ -1630,6 +1641,8 @@ document.addEventListener('keydown', e => {
       e.stopPropagation();
       e.preventDefault();
       h.setPointerCapture(e.pointerId);
+      el.selBox.classList.add('dragging');
+      if (navigator.vibrate) navigator.vibrate(10);
       sel.mode   = 'resize';
       sel.handle = h.dataset.dir;
       sel.startX = e.clientX;
@@ -1652,6 +1665,7 @@ document.addEventListener('keydown', e => {
     h.addEventListener('pointerup', e => {
       if (!isMobile()) return;
       if (e.pointerType === 'mouse') return;
+      el.selBox.classList.remove('dragging');
       sel.mode = null;
       updateFabVisibility();
     });

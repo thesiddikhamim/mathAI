@@ -345,6 +345,7 @@ body {
   cursor: crosshair;
   z-index: 10;
   overflow: hidden; /* Clip masks */
+  touch-action: none;
 }
 
 /* Dark masks outside the selection */
@@ -366,6 +367,15 @@ body {
   z-index: 20;
   /* Smooth corners but straight edges for crop feel */
   border-radius: 2px;
+  touch-action: none;
+  transition: border-color var(--tr), box-shadow var(--tr);
+}
+
+.sel-box.dragging {
+  border-color: var(--accent);
+  box-shadow: 
+    0 0 0 1px rgba(0,0,0,0.3),
+    0 0 20px var(--accent-glow);
 }
 
 /* Marching ants animation on the selection border */
@@ -386,13 +396,29 @@ body {
 /* 8 resize handles */
 .sel-handle {
   position: absolute;
-  width: 10px; height: 10px;
+  width: 12px; height: 12px;
   background: var(--sel-handle-bg);
   border: 2px solid var(--accent);
   border-radius: 50%;
   box-shadow: 0 1px 4px rgba(0,0,0,0.3);
   z-index: 30;
   transform: translate(-50%, -50%);
+  transition: transform var(--tr), background var(--tr);
+}
+
+/* Expanded hit area for touch */
+.sel-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 44px; height: 44px;
+  transform: translate(-50%, -50%);
+}
+
+.sel-handle:active,
+.sel-box.dragging .sel-handle {
+  transform: translate(-50%, -50%) scale(1.3);
+  background: var(--accent);
 }
 
 /* Position handles at corners and midpoints */
@@ -1002,9 +1028,13 @@ body {
 /* Larger touch handles for mobile */
 @media (hover: none) and (pointer: coarse) {
   .sel-handle {
-    width: 20px !important;
-    height: 20px !important;
+    width: 24px !important;
+    height: 24px !important;
     border-width: 3px !important;
+  }
+  /* Hide side handles on mobile to simplify UX */
+  .sel-n, .sel-s, .sel-e, .sel-w {
+    display: none !important;
   }
 }
 

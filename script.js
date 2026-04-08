@@ -835,14 +835,15 @@ el.modelCarousel.querySelectorAll('.model-card').forEach(card => {
 
     // Check if we have a cached answer for this provider
     const cached = state.answerCache[newProvider];
-    if (cached && state.isSolved) {
+    if (cached) {
       state.rawResponse  = cached.rawResponse;
       state.chatHistory  = cached.chatHistory;
       el.solutionContent.innerHTML = cached.solutionHTML;
+      state.isSolved = true;
       setSolutionState('content');
       enableOutputBtns();
       showToast(`↩ Restored ${newProvider} answer`);
-    } else if (state.isSolved) {
+    } else if (state.isSolved || !el.errorActions.classList.contains('hidden')) {
       showToast(`Switching to ${newProvider} — re-analyzing…`);
       el.errorActions.classList.add('hidden');
       solveSelection();

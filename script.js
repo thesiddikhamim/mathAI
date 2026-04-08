@@ -92,6 +92,7 @@ const state = {
   apiKey:      '',
   model:       'gemini-2.0-flash',
   chatHistory: [],
+  isSolved:    false,
 };
 
 /* ── Selection state ────────────────────────────────────── */
@@ -401,6 +402,15 @@ function onOverlayDown(e) {
   // Only start fresh draw on primary button
   if (e.button !== 0) return;
 
+  // If already solved, a click on overlay (or start of new drag) 
+  // signals we want to start a new question.
+  if (state.isSolved) {
+    state.isSolved = false;
+    setSolutionState('empty');
+    el.chatContainer.classList.add('hidden');
+    setHint('Drag to select a new question');
+  }
+
   const rect = el.selOverlay.getBoundingClientRect();
   sel.mode   = 'draw';
   sel.startX = e.clientX - rect.left;
@@ -469,7 +479,8 @@ function onMouseUp() {
  * Compute new x/y/w/h when dragging a resize handle.
  */
 function resizeFromHandle(dir, dx, dy, overlayRect) {
-  let { origX: x, origY: y, origW: w, origH: h } = sel;
+  let { origX, origY, origW, origH } = sel;
+  let x = origX, y = origY, w = origW, h = origH;
 
   if (dir.includes('e')) { w = Math.max(MIN_SEL, origW + dx); }
   if (dir.includes('s')) { h = Math.max(MIN_SEL, origH + dy); }
@@ -491,11 +502,18 @@ function resizeFromHandle(dir, dx, dy, overlayRect) {
   sel.x = x; sel.y = y; sel.w = w; sel.h = h;
 }
 
-// Expose origX/origY for resizeFromHandle closure
-let origX = 0, origY = 0;
+// Ensure handles have correct initial state
 el.selBox.querySelectorAll('.sel-handle').forEach(h => {
-  h.addEventListener('mousedown', () => {
-    origX = sel.origX; origY = sel.origY;
+  h.addEventListener('mousedown', e => {
+    e.stopPropagation();
+    sel.mode   = 'resize';
+    sel.handle = h.dataset.dir;
+    sel.startX = e.clientX;
+    sel.startY = e.clientY;
+    sel.origX  = sel.x;
+    sel.origY  = sel.y;
+    sel.origW  = sel.w;
+    sel.origH  = sel.h;
   });
 });
 
@@ -699,6 +717,7 @@ async function solveSelection() {
     const response = await callGeminiChat(state.chatHistory, state.apiKey, state.model);
     state.rawResponse = response;
     state.chatHistory.push({ role: 'model', parts: [{ text: response }] });
+    state.isSolved = true;
     renderSolution(response);
     enableOutputBtns();
     setHint('Done! Drag a new selection or ask a follow-up question below.');

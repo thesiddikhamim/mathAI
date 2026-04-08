@@ -219,49 +219,52 @@
 
         <!-- Viewer Body: image/canvas + selection overlay -->
         <div class="viewer-body" id="viewerBody">
-          <canvas id="pdfCanvas" class="pdf-canvas hidden" aria-label="PDF page"></canvas>
-          <img id="imagePreview" class="image-preview hidden" alt="Uploaded image" />
+          <!-- Wrapper that matches the size of the content (PDF/Img) -->
+          <div class="viewer-container" id="viewerContainer">
+            <canvas id="pdfCanvas" class="pdf-canvas hidden" aria-label="PDF page"></canvas>
+            <img id="imagePreview" class="image-preview hidden" alt="Uploaded image" />
 
-          <!-- Selection Overlay (covers entire viewer-body) -->
-          <div class="sel-overlay" id="selOverlay">
+            <!-- Selection Overlay (covers entire viewer-container) -->
+            <div class="sel-overlay" id="selOverlay">
 
-            <!-- Dark masks: cover areas outside selection -->
-            <div class="sel-mask" id="maskTop"></div>
-            <div class="sel-mask" id="maskBottom"></div>
-            <div class="sel-mask" id="maskLeft"></div>
-            <div class="sel-mask" id="maskRight"></div>
+              <!-- Dark masks: cover areas outside selection -->
+              <div class="sel-mask" id="maskTop"></div>
+              <div class="sel-mask" id="maskBottom"></div>
+              <div class="sel-mask" id="maskLeft"></div>
+              <div class="sel-mask" id="maskRight"></div>
 
-            <!-- The selection box itself -->
-            <div class="sel-box hidden" id="selBox">
+              <!-- The selection box itself -->
+              <div class="sel-box hidden" id="selBox">
 
-              <!-- 8 resize handles -->
-              <div class="sel-handle sel-nw" data-dir="nw"></div>
-              <div class="sel-handle sel-n"  data-dir="n"></div>
-              <div class="sel-handle sel-ne" data-dir="ne"></div>
-              <div class="sel-handle sel-e"  data-dir="e"></div>
-              <div class="sel-handle sel-se" data-dir="se"></div>
-              <div class="sel-handle sel-s"  data-dir="s"></div>
-              <div class="sel-handle sel-sw" data-dir="sw"></div>
-              <div class="sel-handle sel-w"  data-dir="w"></div>
+                <!-- 8 resize handles -->
+                <div class="sel-handle sel-nw" data-dir="nw"></div>
+                <div class="sel-handle sel-n"  data-dir="n"></div>
+                <div class="sel-handle sel-ne" data-dir="ne"></div>
+                <div class="sel-handle sel-e"  data-dir="e"></div>
+                <div class="sel-handle sel-se" data-dir="se"></div>
+                <div class="sel-handle sel-s"  data-dir="s"></div>
+                <div class="sel-handle sel-sw" data-dir="sw"></div>
+                <div class="sel-handle sel-w"  data-dir="w"></div>
 
-              <!-- Floating toolbar inside/below the selection -->
-              <div class="sel-toolbar" id="selToolbar">
-                <button id="solveSelBtn" class="btn btn-solve-float">
-                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
-                  </svg>
-                  Solve
-                </button>
-                <button id="clearSelBtn" class="sel-clear-btn" title="Clear selection" aria-label="Clear selection">
-                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                  </svg>
-                </button>
-              </div>
+                <!-- Floating toolbar inside/below the selection -->
+                <div class="sel-toolbar" id="selToolbar">
+                  <button id="solveSelBtn" class="btn btn-solve-float">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                    </svg>
+                    Solve
+                  </button>
+                  <button id="clearSelBtn" class="sel-clear-btn" title="Clear selection" aria-label="Clear selection">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                  </button>
+                </div>
 
-            </div><!-- /.sel-box -->
+              </div><!-- /.sel-box -->
 
-          </div><!-- /.sel-overlay -->
+            </div><!-- /.sel-overlay -->
+          </div><!-- /.viewer-container -->
         </div><!-- /.viewer-body -->
 
         <!-- Instruction hint bar -->

@@ -288,7 +288,11 @@ body {
   display: flex; align-items: flex-start; justify-content: center;
   padding: 20px;
   background: var(--bg-primary);
-  position: relative; /* Anchor for .sel-overlay */
+}
+
+.viewer-container {
+  position: relative;
+  display: inline-block;
 }
 
 .pdf-canvas,

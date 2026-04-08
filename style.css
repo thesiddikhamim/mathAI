@@ -736,6 +736,41 @@ body {
 .step-arrow { font-size: 18px; color: var(--text-muted); margin: 0 4px; flex-shrink: 0; }
 .empty-sub  { font-size: 13px; color: var(--text-muted); }
 
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.error-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+  animation: fadeInUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+#tryAgainBtn {
+  padding: 10px 24px;
+  border-radius: 99px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  background: var(--bg-secondary);
+  color: var(--accent);
+  border: 2px solid var(--accent);
+  box-shadow: var(--shadow-md);
+}
+
+#tryAgainBtn:hover {
+  background: var(--accent);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px var(--accent-glow);
+}
+
+#tryAgainBtn:active {
+  transform: translateY(0);
+}
+
+
 /* ── Loading ────────────────────────────────────────────── */
 .loading-state {
   display: flex; flex-direction: column; align-items: center; justify-content: center;

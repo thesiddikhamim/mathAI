@@ -510,7 +510,16 @@
               <div class="step-desc">Click <strong>Solve</strong></div>
             </div>
           </div>
-          <p class="empty-sub">The AI will solve only the selected region</p>
+          <p class="empty-sub" id="emptySubText">The AI will solve only the selected region</p>
+          <div id="errorActions" class="error-actions hidden">
+            <button id="tryAgainBtn" class="btn btn-primary">
+              <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M23 4v6h-6M1 20v-6h6"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+              Try Again
+            </button>
+          </div>
         </div>
 
         <!-- Loading State -->

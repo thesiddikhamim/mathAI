@@ -85,6 +85,9 @@ const el = {
   emptyState:   $('emptyState'),
   loadingState: $('loadingState'),
   loadingSubText: $('loadingSubText'),
+  errorActions:   $('errorActions'),
+  tryAgainBtn:    $('tryAgainBtn'),
+  emptySubText:   $('emptySubText'),
   solutionContent: $('solutionContent'),
 
   // Model switcher
@@ -840,9 +843,14 @@ function updateSwitcherModelLabel() {
     } else if (state.isSolved) {
       // Need to re-solve with new provider
       showToast(`Switching to ${newProvider} — re-analyzing…`);
+      el.errorActions.classList.add('hidden');
       solveSelection();
     }
   });
+});
+
+el.tryAgainBtn.addEventListener('click', () => {
+  solveSelection(false);
 });
 
 /* =========================================================
@@ -914,6 +922,10 @@ async function solveSelection(clearCache = false) {
 
   setSolutionState('loading');
   disableOutputBtns();
+  state.isSolved = false;
+  el.solutionContent.innerHTML = '';
+  el.errorActions.classList.add('hidden');
+
   const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama' };
 
   el.loadingSubText.textContent = `${providerNames[state.provider]} is analyzing your selection…`;
@@ -975,6 +987,8 @@ async function solveSelection(clearCache = false) {
     }
   } catch (err) {
     setSolutionState('empty');
+    state.isSolved = false;
+    el.errorActions.classList.remove('hidden');
     showToast('❌ ' + (err.message || 'AI request failed.'));
     console.error('AI error:', err);
     setHint('Something went wrong. Try again.');

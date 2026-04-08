@@ -558,14 +558,6 @@ body {
 .settings-status.error   { background: rgba(239,68,68,.1);  color: var(--danger);  border: 1px solid rgba(239,68,68,.25); }
 
 /* ── Model Switcher Bar ─────────────────────────────────── */
-.model-switcher {
-  display: flex; align-items: center; gap: 10px;
-  padding: 8px 18px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-primary);
-  flex-shrink: 0;
-  flex-wrap: wrap;
-}
 .switcher-label {
   font-size: 11.5px; font-weight: 600;
   color: var(--text-muted);
@@ -631,7 +623,7 @@ body {
   font-size: 10.5px; color: var(--text-muted);
   font-family: var(--font-mono);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 160px; margin-left: auto;
+  max-width: 140px;
 }
 
 /* ── Toast ──────────────────────────────────────────────── */
@@ -651,13 +643,20 @@ body {
 /* ── Solution Panel ─────────────────────────────────────── */
 .solution-header {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 18px;
+  padding: 8px 14px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-tertiary);
   flex-shrink: 0;
+  gap: 12px;
 }
-.solution-title { font-size: 15px; font-weight: 700; color: var(--text-primary); }
-.solution-header-actions { display: flex; align-items: center; gap: 6px; }
+
+.model-switcher-inline {
+  display: flex; align-items: center; gap: 12px;
+  flex: 1;
+  min-width: 0;
+}
+
+.solution-header-actions { display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
 
 .solution-body { flex: 1; overflow-y: auto; position: relative; }
 
@@ -794,6 +793,96 @@ body {
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 99px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── PDF Template Styling ──────────────────────────────── */
+.pdf-template {
+  background: #fff !important;
+  color: #0f1117 !important;
+  padding: 40px;
+  width: 800px; /* Base width for capture */
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* Force light mode colors in PDF regardless of app theme */
+.pdf-template .solution-content {
+  color: #0f1117 !important;
+  background: #fff !important;
+  padding: 0 !important;
+  animation: none !important;
+}
+.pdf-template .solution-content h2 { color: #2563eb !important; border-bottom-color: #e5e7eb !important; }
+.pdf-template .solution-content blockquote { background: #f0f7ff !important; border-left-color: #2563eb !important; color: #4b5563 !important; }
+.pdf-template .solution-content code { background: #f3f4f6 !important; border-color: #e5e7eb !important; color: #2563eb !important; }
+.pdf-template .solution-content pre { background: #f3f4f6 !important; border-color: #e5e7eb !important; }
+
+.pdf-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  border-bottom: 2px solid #2563eb;
+  padding-bottom: 15px;
+  margin-bottom: 30px;
+}
+
+.pdf-logo { display: flex; align-items: center; gap: 10px; }
+.pdf-logo .logo-icon {
+  width: 40px; height: 40px;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 800;
+}
+.pdf-logo .logo-text { font-size: 20px; font-weight: 800; color: #0f1117; }
+.pdf-logo .logo-accent { color: #2563eb; }
+
+.pdf-meta { text-align: right; font-size: 12px; color: #6b7280; line-height: 1.6; }
+
+.pdf-section { margin-bottom: 35px; }
+.pdf-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #9ca3af;
+  letter-spacing: 1px;
+  margin-bottom: 15px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.pdf-section-title::after { content: ''; flex: 1; height: 1px; background: #f3f4f6; }
+
+.pdf-question-container {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 15px;
+  display: flex;
+  justify-content: center;
+  max-height: 400px;
+  overflow: hidden;
+}
+.pdf-question-container img {
+  max-width: 100%;
+  max-height: 370px;
+  object-fit: contain;
+  border-radius: 4px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.pdf-footer {
+  margin-top: 50px;
+  padding-top: 20px;
+  border-top: 1px solid #f3f4f6;
+  text-align: center;
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+/* Page break handling for html2pdf */
+.pdf-section { page-break-inside: avoid; }
+.solution-content h2 { page-break-before: auto; page-break-after: avoid; }
+.solution-content p, .solution-content ul, .solution-content ol { page-break-inside: avoid; }
 
 /* ── Responsive ─────────────────────────────────────────── */
 @media (max-width: 768px) {

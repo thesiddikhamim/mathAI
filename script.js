@@ -95,6 +95,13 @@ const el = {
 
   // Toast
   toast:        $('toast'),
+
+  // PDF Template
+  pdfTemplate:  $('pdfTemplate'),
+  pdfDate:      $('pdfDate'),
+  pdfModel:     $('pdfModel'),
+  pdfQuestionImg: $('pdfQuestionImg'),
+  pdfSolutionContent: $('pdfSolutionContent'),
 };
 
 /* ── App state ──────────────────────────────────────────── */
@@ -784,22 +791,23 @@ const SYSTEM_PROMPT = `You are an expert Math AI Tutor. Solve the question prese
 
 Analyze the question carefully and structure your response EXACTLY in the following format.
 
-**Answer**
-State the final answer clearly in one short sentence (e.g., "The answer is a) 100").
-
 **Explanation**
-Provide a highly structured, step-by-step breakdown. Format each step with a bold, numbered heading followed by the logic.
+Provide a highly structured, step-by-step breakdown. Format each step with a bold, numbered heading followed by the logic. Use $...$ for inline math and $$...$$ for equations.
 
 **1. [Brief Title/Action for Step 1]**
-[Calculation or logic for step 1. Use $...$ for inline math and $$...$$ for equations.]
+[Calculation or logic for step 1.]
 
 **2. [Brief Title/Action for Step 2]**
 [Calculation or logic for step 2...]
 
 (Continue with bold numbered steps until the solution is complete.)
 
+**Answer**
+State the final answer clearly in one short sentence (e.g., "The answer is a) 100").
+
 Rules:
-- Start directly with "**Answer**". Do not use conversational filler like "Here is the solution".
+- Start directly with "**Explanation**". Do not use conversational filler like "Here is the solution".
+- The final answer MUST be at the very bottom under the "**Answer**" heading.
 - Keep the logic intuitive but extremely concise. Just the math and the direct reasoning.
 - Do not waste time explaining why incorrect options are wrong.
 - Ensure all math expressions are cleanly wrapped in proper LaTeX.`;
@@ -1208,19 +1216,65 @@ el.copyLatexBtn.addEventListener('click', () => {
 
 el.downloadBtn.addEventListener('click', async () => {
   if (!state.rawResponse) return;
+
   try {
-    showToast('⏳ Generating PDF…');
-    await html2pdf().set({
-      margin:     [12, 14],
-      filename:   'MathAI-Solution.pdf',
-      image:      { type: 'jpeg', quality: 0.96 },
-      html2canvas:{ scale: 2, useCORS: true },
-      jsPDF:      { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    }).from(el.solutionContent).save();
-    showToast('✓ PDF saved!');
+    showToast('⏳ Generating professional report…');
+
+    // 1. Prepare data
+    const now = new Date();
+    const dateStr = now.toLocaleDateString('en-US', { 
+      year: 'numeric', month: 'long', day: 'numeric',
+      hour: '2-digit', minute: '2-digit'
+    });
+    
+    const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral' };
+    const modelName = state.provider === 'gemini' ? state.geminiModel : 
+                     (state.provider === 'groq' ? state.groqModel : state.mistralModel);
+
+    // 2. Populate template
+    el.pdfDate.textContent = dateStr;
+    el.pdfModel.textContent = `Model: ${providerNames[state.provider]} ${modelName}`;
+    
+    // Get high-quality crop
+    const cropBase64 = cropSelectionToBase64();
+    if (cropBase64) {
+      el.pdfQuestionImg.src = `data:image/png;base64,${cropBase64}`;
+    }
+
+    // Clone solution content and clean up (remove animations, etc.)
+    el.pdfSolutionContent.innerHTML = el.solutionContent.innerHTML;
+    
+    // Ensure math is rendered (it should be as we clone innerHTML, but sometimes KaTeX needs help)
+    // Wait a bit for the image to load in the hidden template
+    await new Promise(r => setTimeout(r, 100));
+
+    // 3. Generate PDF
+    const opt = {
+      margin:       [10, 10],
+      filename:     `MathAI-Solution-${now.getTime()}.pdf`,
+      image:        { type: 'jpeg', quality: 0.98 },
+      html2canvas:  { 
+        scale: 2, 
+        useCORS: true, 
+        letterRendering: true,
+        backgroundColor: '#ffffff'
+      },
+      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
+      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+    };
+
+    // Temporarily show the template (but off-screen or zero height) for capturing
+    // html2pdf works best if the element is in the DOM and visible (but can be hidden via clip/position)
+    el.pdfTemplate.classList.remove('hidden');
+    
+    await html2pdf().set(opt).from(el.pdfTemplate).save();
+
+    el.pdfTemplate.classList.add('hidden');
+    showToast('✓ Solution report saved!');
   } catch (err) {
     showToast('❌ PDF generation failed.');
-    console.error(err);
+    console.error('PDF Error:', err);
+    el.pdfTemplate.classList.add('hidden');
   }
 });
 

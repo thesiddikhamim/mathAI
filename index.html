@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MathAI — AI-Powered Math Solver</title>
+  <meta name="description" content="Select any question on an image or PDF and get step-by-step AI solutions in LaTeX." />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+
+  <!-- PDF.js -->
+  <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+
+  <!-- Marked.js (Markdown) -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- html2pdf -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- ===== HEADER ===== -->
+  <header class="header">
+    <div class="header-left">
+      <div class="logo">
+        <span class="logo-icon">∑</span>
+        <span class="logo-text">Math<span class="logo-accent">AI</span></span>
+      </div>
+      <span class="header-tagline">Select a question → get a solution</span>
+    </div>
+    <div class="header-right">
+      <!-- Dark Mode Toggle -->
+      <button id="darkModeToggle" class="icon-btn" title="Toggle dark mode" aria-label="Toggle dark mode">
+        <svg class="icon sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+          <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+          <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+          <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+        </svg>
+        <svg class="icon moon-icon hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+
+      <!-- Settings Button -->
+      <button id="settingsToggle" class="icon-btn" title="Settings" aria-label="Open settings">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- ===== SETTINGS MODAL ===== -->
+  <div id="settingsOverlay" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Settings">
+    <div class="settings-modal">
+      <div class="settings-header">
+        <h2 class="settings-title">Settings</h2>
+        <button id="settingsClose" class="icon-btn" aria-label="Close settings">
+          <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="settings-body">
+
+        <div class="settings-section">
+          <label class="settings-label" for="apiKeyInput">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>
+            </svg>
+            Gemini API Key
+          </label>
+          <div class="api-key-row">
+            <input type="password" id="apiKeyInput" class="text-input" placeholder="AIza..." autocomplete="off" spellcheck="false" />
+            <button id="toggleKeyVisibility" class="icon-btn" title="Show/hide key" aria-label="Toggle key visibility">
+              <svg class="icon eye-open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+              </svg>
+              <svg class="icon eye-closed hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                <line x1="1" y1="1" x2="23" y2="23"/>
+              </svg>
+            </button>
+          </div>
+          <p class="settings-hint">Stored locally in your browser — never sent anywhere except Google's API.</p>
+        </div>
+
+        <div class="settings-section">
+          <label class="settings-label" for="modelSelect">Gemini Model</label>
+          <select id="modelSelect" class="text-input select-input">
+            <!-- Gemini 3 Series (Advanced Reasoning & Speed) -->
+              <option value="gemini-3.1-pro-preview">Gemini 3.1 Pro (New Preview)</option>
+              <option value="gemini-3.1-flash-lite-preview">Gemini 3.1 Flash-Lite (Fastest)</option>
+              <option value="gemini-3-flash-preview">Gemini 3 Flash (High Performance)</option>
+
+              <!-- Gemini 2.5 Series (Stable/GA) -->
+              <option value="gemini-2.5-pro">Gemini 2.5 Pro (Deep Reasoning)</option>
+              <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recommended - Stable)</option>
+              <option value="gemini-2.5-flash-lite">Gemini 2.5 Flash-Lite (Economical)</option>
+
+              <!-- Specialized Models -->
+              <option value="gemini-live-3.1-flash-preview">Gemini 3.1 Flash Live (Real-time Audio)</option>
+              <option value="gemini-2.5-computer-use-preview">Gemini 2.5 Computer Use (Agents)</option>
+              <option value="gemini-embedding-2-preview">Gemini Embedding 2 (Multimodal RAG)</option>
+
+              <!-- Legacy Models (Deprecated) -->
+              <option value="gemini-2.0-flash">Gemini 2.0 Flash (Deprecated)</option>
+              <option value="gemini-1.5-flash">Gemini 1.5 Flash (Legacy)</option>
+
+          </select>
+        </div>
+
+        <div class="settings-actions">
+          <button id="saveApiKey" class="btn btn-primary">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/>
+              <polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+            </svg>
+            Save Settings
+          </button>
+          <button id="clearApiKey" class="btn btn-ghost">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+            Clear Key
+          </button>
+        </div>
+
+        <div id="settingsStatus" class="settings-status hidden"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== TOAST ===== -->
+  <div id="toast" class="toast hidden" role="alert" aria-live="polite"></div>
+
+  <!-- ===== MAIN LAYOUT ===== -->
+  <main class="main-layout">
+
+    <!-- ===== LEFT PANEL: File Viewer ===== -->
+    <section class="panel panel-left" id="leftPanel" aria-label="File viewer">
+
+      <!-- Upload Zone -->
+      <div id="uploadZone" class="upload-zone" role="button" tabindex="0" aria-label="Upload file">
+        <div class="upload-content">
+          <div class="upload-icon-wrap">
+            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+          </div>
+          <p class="upload-title">Drop a file here</p>
+          <p class="upload-sub">JPG · PNG · PDF</p>
+          <div class="upload-divider"><span>or</span></div>
+          <label for="fileInput" class="btn btn-primary upload-btn">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="3" y="3" width="18" height="18" rx="2"/>
+              <line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/>
+            </svg>
+            Choose File
+          </label>
+          <input type="file" id="fileInput" accept=".jpg,.jpeg,.png,.pdf" class="sr-only" aria-label="File input" />
+          <p class="upload-tip">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+            </svg>
+            After uploading, drag to select the question
+          </p>
+        </div>
+      </div>
+
+      <!-- File Viewer -->
+      <div id="fileViewer" class="file-viewer hidden">
+
+        <!-- File Header Bar -->
+        <div class="file-header">
+          <div class="file-info">
+            <span id="fileIcon" class="file-type-badge">IMG</span>
+            <span id="fileName" class="file-name">document.pdf</span>
+          </div>
+          <div class="file-actions">
+            <!-- PDF page navigation -->
+            <div id="pdfNav" class="pdf-nav hidden">
+              <button id="prevPage" class="icon-btn" title="Previous page" aria-label="Previous page">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="15 18 9 12 15 6"/>
+                </svg>
+              </button>
+              <span id="pageInfo" class="page-info">1 / 1</span>
+              <button id="nextPage" class="icon-btn" title="Next page" aria-label="Next page">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </button>
+            </div>
+            <button id="removeFile" class="icon-btn danger-btn" title="Remove file" aria-label="Remove file">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- Viewer Body: image/canvas + selection overlay -->
+        <div class="viewer-body" id="viewerBody">
+          <canvas id="pdfCanvas" class="pdf-canvas hidden" aria-label="PDF page"></canvas>
+          <img id="imagePreview" class="image-preview hidden" alt="Uploaded image" />
+
+          <!-- Selection Overlay (covers entire viewer-body) -->
+          <div class="sel-overlay" id="selOverlay">
+
+            <!-- Dark masks: cover areas outside selection -->
+            <div class="sel-mask" id="maskTop"></div>
+            <div class="sel-mask" id="maskBottom"></div>
+            <div class="sel-mask" id="maskLeft"></div>
+            <div class="sel-mask" id="maskRight"></div>
+
+            <!-- The selection box itself -->
+            <div class="sel-box hidden" id="selBox">
+
+              <!-- 8 resize handles -->
+              <div class="sel-handle sel-nw" data-dir="nw"></div>
+              <div class="sel-handle sel-n"  data-dir="n"></div>
+              <div class="sel-handle sel-ne" data-dir="ne"></div>
+              <div class="sel-handle sel-e"  data-dir="e"></div>
+              <div class="sel-handle sel-se" data-dir="se"></div>
+              <div class="sel-handle sel-s"  data-dir="s"></div>
+              <div class="sel-handle sel-sw" data-dir="sw"></div>
+              <div class="sel-handle sel-w"  data-dir="w"></div>
+
+              <!-- Floating toolbar inside/below the selection -->
+              <div class="sel-toolbar" id="selToolbar">
+                <button id="solveSelBtn" class="btn btn-solve-float">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+                  </svg>
+                  Solve
+                </button>
+                <button id="clearSelBtn" class="sel-clear-btn" title="Clear selection" aria-label="Clear selection">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
+
+            </div><!-- /.sel-box -->
+
+          </div><!-- /.sel-overlay -->
+        </div><!-- /.viewer-body -->
+
+        <!-- Instruction hint bar -->
+        <div class="hint-bar" id="hintBar">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/>
+          </svg>
+          <span id="hintText">Drag on the image to select a question</span>
+        </div>
+
+      </div><!-- /#fileViewer -->
+    </section>
+
+    <!-- ===== PANEL DIVIDER ===== -->
+    <div class="panel-divider" id="panelDivider" role="separator" aria-orientation="vertical" title="Drag to resize"></div>
+
+    <!-- ===== RIGHT PANEL: Solution ===== -->
+    <section class="panel panel-right" id="rightPanel" aria-label="AI solution">
+
+      <div class="solution-header">
+        <h2 class="solution-title">Solution</h2>
+        <div class="solution-header-actions">
+          <button id="downloadBtn" class="btn btn-sm btn-outline" title="Download PDF" disabled>
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            PDF
+          </button>
+          <button id="copyLatexBtn" class="btn btn-sm btn-outline" title="Copy LaTeX source" disabled>
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            LaTeX
+          </button>
+          <button id="copyBtn" class="btn btn-sm btn-outline" title="Copy text" disabled>
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="9" y="9" width="13" height="13" rx="2"/>
+              <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+            </svg>
+            Copy
+          </button>
+        </div>
+      </div>
+
+      <div class="solution-body" id="solutionBody">
+
+        <!-- Empty State -->
+        <div id="emptyState" class="empty-state">
+          <div class="empty-steps">
+            <div class="empty-step">
+              <div class="step-num">1</div>
+              <div class="step-desc">Upload an image or PDF</div>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="empty-step">
+              <div class="step-num">2</div>
+              <div class="step-desc">Drag to select the question</div>
+            </div>
+            <div class="step-arrow">→</div>
+            <div class="empty-step">
+              <div class="step-num">3</div>
+              <div class="step-desc">Click <strong>Solve</strong></div>
+            </div>
+          </div>
+          <p class="empty-sub">The AI will solve only the selected region</p>
+        </div>
+
+        <!-- Loading State -->
+        <div id="loadingState" class="loading-state hidden">
+          <div class="spinner-ring"></div>
+          <p class="loading-text">Generating solution…</p>
+          <p class="loading-sub">Gemini Vision is reading your selection</p>
+          <div class="loading-dots">
+            <span></span><span></span><span></span>
+          </div>
+        </div>
+
+        <!-- Solution Content -->
+        <div id="solutionContent" class="solution-content hidden" aria-live="polite"></div>
+
+      </div>
+
+      <!-- Chat Input (hidden until solved) -->
+      <div id="chatContainer" class="chat-container hidden">
+        <input type="text" id="chatInput" class="text-input" placeholder="Ask a follow-up question..." autocomplete="off" />
+        <button id="chatSendBtn" class="btn btn-primary" title="Send" aria-label="Send message">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+        </button>
+      </div>
+
+    </section>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -723,18 +723,30 @@ body {
   to   { opacity: 1; transform: translateY(0); }
 }
 
-.solution-content h1 { font-size: 21px; margin: 22px 0 10px; font-weight: 700; }
-.solution-content h2 {
-  font-size: 17px; font-weight: 700; color: var(--accent);
-  border-bottom: 1px solid var(--border); padding-bottom: 6px;
-  margin: 22px 0 10px;
+.solution-content h1, .solution-content h2, .solution-content h3,
+.solution-content h4, .solution-content h5, .solution-content h6 {
+  color: var(--text-primary);
+  font-weight: 700;
 }
-.solution-content h3 { font-size: 15px; font-weight: 600; margin: 18px 0 8px; }
-.solution-content p  { margin: 10px 0; }
+.solution-content h1 { font-size: 21px; margin: 24px 0 12px; }
+.solution-content h2 {
+  font-size: 18px;
+  border-bottom: 1px solid var(--border); padding-bottom: 8px;
+  margin: 28px 0 14px;
+}
+.solution-content h3 { 
+  font-size: 16px; 
+  margin: 24px 0 12px;
+  display: block;
+}
+.solution-content h4, .solution-content h5, .solution-content h6 {
+  font-size: 15px; margin: 18px 0 8px;
+}
+.solution-content p  { margin: 12px 0; line-height: 1.8; }
 .solution-content ul,
-.solution-content ol { margin: 8px 0 8px 22px; }
-.solution-content li { margin: 4px 0; }
-.solution-content strong { font-weight: 600; }
+.solution-content ol { margin: 12px 0 12px 24px; }
+.solution-content li { margin: 6px 0; }
+.solution-content strong { font-weight: 700; color: var(--text-primary); }
 .solution-content em { font-style: italic; color: var(--text-secondary); }
 
 .solution-content code {
@@ -745,24 +757,34 @@ body {
 .solution-content pre {
   background: var(--bg-tertiary); border: 1px solid var(--border);
   border-radius: var(--radius-md); padding: 16px;
-  overflow-x: auto; margin: 14px 0;
+  overflow-x: auto; margin: 18px 0;
 }
 .solution-content pre code { background: none; border: none; padding: 0; color: var(--text-primary); }
 
 .solution-content blockquote {
   border-left: 4px solid var(--accent);
-  padding: 10px 16px; margin: 14px 0;
+  padding: 12px 20px; margin: 18px 0;
   background: var(--accent-lt);
-  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
   color: var(--text-secondary);
 }
 
 .solution-content .katex-display {
-  margin: 18px 0; overflow-x: auto;
-  padding: 14px 0;
+  margin: 24px 0; 
+  overflow-x: auto;
+  padding: 8px 0;
   text-align: center;
 }
-.solution-content .katex { font-size: 1.08em; }
+.solution-content .katex { font-size: 1.1em; }
+
+.solution-content .math-block {
+  text-align: center;
+  margin: 24px 0;
+  overflow-x: auto;
+}
+.solution-content .math-block .katex-display {
+  margin: 0 !important;
+}
 
 /* ── Chat Container ─────────────────────────────────────── */
 .chat-container {

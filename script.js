@@ -792,25 +792,26 @@ const SYSTEM_PROMPT = `You are an expert Math AI Tutor. Solve the question prese
 Analyze the question carefully and structure your response EXACTLY in the following format.
 
 **Explanation**
-Provide a highly structured, step-by-step breakdown. Format each step with a bold, numbered heading followed by the logic. Use $...$ for inline math and $$...$$ for equations.
+Provide a highly structured, step-by-step breakdown. Each step MUST start with a heading in the format: ### [Number]. [Brief Title]. Use $...$ for inline math and $$...$$ for equations.
 
-**1. [Brief Title/Action for Step 1]**
+### 1. [Brief Title/Action for Step 1]
 [Calculation or logic for step 1.]
 
-**2. [Brief Title/Action for Step 2]**
+### 2. [Brief Title/Action for Step 2]
 [Calculation or logic for step 2...]
 
-(Continue with bold numbered steps until the solution is complete.)
+(Continue with sequential ### headings until the solution is complete.)
 
 **Answer**
 State the final answer clearly in one short sentence (e.g., "The answer is a) 100").
 
-Rules:
-- Start directly with "**Explanation**". Do not use conversational filler like "Here is the solution".
-- The final answer MUST be at the very bottom under the "**Answer**" heading.
-- Keep the logic intuitive but extremely concise. Just the math and the direct reasoning.
-- Do not waste time explaining why incorrect options are wrong.
-- Ensure all math expressions are cleanly wrapped in proper LaTeX.`;
+Formatting Rules (CRITICAL):
+- Start directly with "**Explanation**". Do not use any introductory filler.
+- STEP HEADINGS: Every single step MUST begin with "### [Number]. [Title]". Example: "### 3. Calculate the Area".
+- NO BOLD TITLES: Do not use "**" for step headings. Just the "###" prefix.
+- NEWLINES: Every display math block ($$ ... $$) MUST be followed by EXACTLY TWO newlines (\n\n) before any following text.
+- LaTeX: Ensure all math expressions are wrapped in proper LaTeX ($ for inline, $$ for block).
+- Conciseness: Keep reasoning direct and math-focused.`;
 
 el.solveSelBtn.addEventListener('click', e => {
   e.stopPropagation();
@@ -858,7 +859,6 @@ async function solveSelection() {
         {
           role: 'user',
           parts: [
-            { text: SYSTEM_PROMPT },
             { inlineData: { mimeType: 'image/png', data: base64 } }
           ]
         }
@@ -867,13 +867,13 @@ async function solveSelection() {
     } else if (state.provider === 'groq') {
       response = await callGroqChat(base64, state.groqApiKey, state.groqModel);
       state.chatHistory = [
-        { role: 'user',      content: SYSTEM_PROMPT + '\n[Image provided]' },
+        { role: 'user',      content: '[Image provided]' },
         { role: 'assistant', content: response }
       ];
     } else if (state.provider === 'mistral') {
       response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel);
       state.chatHistory = [
-        { role: 'user',      content: SYSTEM_PROMPT + '\n[Image provided]' },
+        { role: 'user',      content: '[Image provided]' },
         { role: 'assistant', content: response }
       ];
     }
@@ -959,9 +959,10 @@ async function callGeminiChat(contents, apiKey, model) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const body = {
+    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents: contents,
     generationConfig: {
-      temperature:     0.25,
+      temperature:     0.15,
       topP:            0.95,
       maxOutputTokens: 8192,
     }
@@ -997,22 +998,21 @@ async function callGroqChat(base64, apiKey, model) {
   let messages;
   if (supportsVision) {
     messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
         content: [
-          { type: 'text', text: SYSTEM_PROMPT },
           { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } }
         ]
       }
     ];
   } else {
-    // Text-only fallback — describe the image ourselves via Gemini won't work,
-    // so we embed the base64 image URL style
     messages = [
+      { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
         content: [
-          { type: 'text', text: SYSTEM_PROMPT },
+          { type: 'text', text: '[Image context provided as base64 but model has no vision]' },
           { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } }
         ]
       }
@@ -1051,7 +1051,8 @@ async function callGroqChat(base64, apiKey, model) {
  */
 async function callGroqFollowUp(messages, apiKey, model) {
   const url = 'https://api.groq.com/openai/v1/chat/completions';
-  const body = { model, messages, temperature: 0.25, max_tokens: 8192 };
+  const fullMessages = [{ role: 'system', content: SYSTEM_PROMPT }, ...messages];
+  const body = { model, messages: fullMessages, temperature: 0.15, max_tokens: 8192 };
 
   const res = await fetch(url, {
     method:  'POST',
@@ -1094,8 +1095,11 @@ async function callMistralChat(base64, apiKey, model) {
 
   const body = {
     model,
-    messages: [{ role: 'user', content }],
-    temperature: 0.25,
+    messages: [
+      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'user', content }
+    ],
+    temperature: 0.15,
     max_tokens:  8192,
   };
 
@@ -1131,7 +1135,12 @@ async function callMistralFollowUp(messages, apiKey, model) {
       ? m.content.filter(c => c.type === 'text').map(c => c.text).join(' ')
       : m.content,
   }));
-  const body = { model, messages: cleanMessages, temperature: 0.25, max_tokens: 8192 };
+  const body = { 
+    model, 
+    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...cleanMessages], 
+    temperature: 0.15, 
+    max_tokens: 8192 
+  };
 
   const res = await fetch(url, {
     method:  'POST',
@@ -1152,8 +1161,25 @@ async function callMistralFollowUp(messages, apiKey, model) {
    ========================================================= */
 
 function renderMarkdown(raw, container) {
+  let processed = raw;
+
+  // Convert ```math code blocks to standard $$ math blocks
+  processed = processed.replace(/```math\n?([\s\S]*?)```/g, (match, p1) => `$$${p1}$$`);
+
+  const escapeHTML = str => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // Protect $$ ... $$ from being mangled by marked's breaks:true
+  processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+    return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
+  });
+
+  // Protect \[ ... \] blocks as well
+  processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+    return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
+  });
+
   marked.setOptions({ breaks: true, gfm: true });
-  container.innerHTML = marked.parse(raw);
+  container.innerHTML = marked.parse(processed);
 
   if (typeof renderMathInElement !== 'undefined') {
     renderMathInElement(container, {

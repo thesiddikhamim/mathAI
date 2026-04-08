@@ -38,6 +38,10 @@ const el = {
   mistralApiKeyInput:  $('mistralApiKeyInput'),
   toggleMistralKeyVis: $('toggleMistralKeyVis'),
   mistralModelSelect:  $('mistralModelSelect'),
+  // Ollama
+  ollamaApiKeyInput:   $('ollamaApiKeyInput'),
+  toggleOllamaKeyVis:  $('toggleOllamaKeyVis'),
+  ollamaModelSelect:   $('ollamaModelSelect'),
   // Settings actions
   saveKey:      $('saveApiKey'),
   clearKey:     $('clearApiKey'),
@@ -87,6 +91,7 @@ const el = {
   switchGemini:    $('switchGemini'),
   switchGroq:      $('switchGroq'),
   switchMistral:   $('switchMistral'),
+  switchOllama:    $('switchOllama'),
   activeModelName: $('activeModelName'),
 
   // Chat
@@ -117,9 +122,11 @@ const state = {
   apiKey:         '',
   groqApiKey:     '',
   mistralApiKey:  '',
+  ollamaApiKey:   '',
   geminiModel:    'gemini-2.5-pro',
   groqModel:      'meta-llama/llama-4-scout-17b-16e-instruct',
   mistralModel:   'mistral-large-latest',
+  ollamaModel:    'gemma4:31b-cloud',
   // Active provider
   provider:    'gemini',  // 'gemini' | 'groq' | 'mistral'
   chatHistory: [],
@@ -219,9 +226,11 @@ function openSettings() {
   el.apiKeyInput.value        = state.apiKey;
   el.groqApiKeyInput.value    = state.groqApiKey;
   el.mistralApiKeyInput.value = state.mistralApiKey;
+  el.ollamaApiKeyInput.value  = state.ollamaApiKey;
   el.geminiModelSelect.value  = state.geminiModel;
   el.groqModelSelect.value    = state.groqModel;
   el.mistralModelSelect.value = state.mistralModel;
+  el.ollamaModelSelect.value  = state.ollamaModel;
   el.settingsSt.classList.add('hidden');
   el.settingsOv.classList.remove('hidden');
   setTimeout(() => el.apiKeyInput.focus(), 80);
@@ -246,13 +255,15 @@ function makeEyeToggle(btn, input) {
 makeEyeToggle(el.toggleKeyVis,        el.apiKeyInput);
 makeEyeToggle(el.toggleGroqKeyVis,    el.groqApiKeyInput);
 makeEyeToggle(el.toggleMistralKeyVis, el.mistralApiKeyInput);
+makeEyeToggle(el.toggleOllamaKeyVis,  el.ollamaApiKeyInput);
 
 el.saveKey.addEventListener('click', () => {
   const gemKey     = el.apiKeyInput.value.trim();
   const groqKey    = el.groqApiKeyInput.value.trim();
   const mistralKey = el.mistralApiKeyInput.value.trim();
+  const ollaKey    = el.ollamaApiKeyInput.value.trim();
 
-  if (!gemKey && !groqKey && !mistralKey) {
+  if (!gemKey && !groqKey && !mistralKey && !ollaKey) {
     showSettingsSt('Enter at least one API key.', 'error');
     return;
   }
@@ -260,9 +271,11 @@ el.saveKey.addEventListener('click', () => {
   state.apiKey        = gemKey;
   state.groqApiKey    = groqKey;
   state.mistralApiKey = mistralKey;
+  state.ollamaApiKey  = ollaKey;
   state.geminiModel   = el.geminiModelSelect.value;
   state.groqModel     = el.groqModelSelect.value;
   state.mistralModel  = el.mistralModelSelect.value;
+  state.ollamaModel   = el.ollamaModelSelect.value;
 
   if (gemKey)     localStorage.setItem('mathai-apikey', gemKey);
   else            localStorage.removeItem('mathai-apikey');
@@ -270,10 +283,13 @@ el.saveKey.addEventListener('click', () => {
   else            localStorage.removeItem('mathai-groq-apikey');
   if (mistralKey) localStorage.setItem('mathai-mistral-apikey', mistralKey);
   else            localStorage.removeItem('mathai-mistral-apikey');
+  if (ollaKey)    localStorage.setItem('mathai-ollama-apikey', ollaKey);
+  else            localStorage.removeItem('mathai-ollama-apikey');
 
   localStorage.setItem('mathai-gemini-model',   state.geminiModel);
   localStorage.setItem('mathai-groq-model',     state.groqModel);
   localStorage.setItem('mathai-mistral-model',  state.mistralModel);
+  localStorage.setItem('mathai-ollama-model',   state.ollamaModel);
 
   updateSwitcherModelLabel();
   showSettingsSt('✓ All settings saved!', 'success');
@@ -281,11 +297,12 @@ el.saveKey.addEventListener('click', () => {
 });
 
 el.clearKey.addEventListener('click', () => {
-  state.apiKey = ''; state.groqApiKey = ''; state.mistralApiKey = '';
-  el.apiKeyInput.value = ''; el.groqApiKeyInput.value = ''; el.mistralApiKeyInput.value = '';
+  state.apiKey = ''; state.groqApiKey = ''; state.mistralApiKey = ''; state.ollamaApiKey = '';
+  el.apiKeyInput.value = ''; el.groqApiKeyInput.value = ''; el.mistralApiKeyInput.value = ''; el.ollamaApiKeyInput.value = '';
   localStorage.removeItem('mathai-apikey');
   localStorage.removeItem('mathai-groq-apikey');
   localStorage.removeItem('mathai-mistral-apikey');
+  localStorage.removeItem('mathai-ollama-apikey');
   showSettingsSt('All API keys cleared.', 'success');
 });
 
@@ -302,6 +319,8 @@ function loadSettings() {
   const gm = localStorage.getItem('mathai-gemini-model');
   const grm= localStorage.getItem('mathai-groq-model');
   const mm = localStorage.getItem('mathai-mistral-model');
+  const ok = localStorage.getItem('mathai-ollama-apikey');
+  const om = localStorage.getItem('mathai-ollama-model');
   const pr = localStorage.getItem('mathai-provider');
 
   if (k)   state.apiKey        = k;
@@ -310,6 +329,8 @@ function loadSettings() {
   if (gm)  state.geminiModel   = gm;
   if (grm) state.groqModel     = grm;
   if (mm)  state.mistralModel  = mm;
+  if (ok)  state.ollamaApiKey  = ok;
+  if (om)  state.ollamaModel   = om;
   if (pr)  state.provider      = pr;
 
   // Sync UI
@@ -771,8 +792,8 @@ function cropSelectionToBase64() {
    ========================================================= */
 
 function updateSwitcherPills() {
-  [el.switchGemini, el.switchGroq, el.switchMistral].forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.provider === state.provider);
+  [el.switchGemini, el.switchGroq, el.switchMistral, el.switchOllama].forEach(btn => {
+    if (btn) btn.classList.toggle('active', btn.dataset.provider === state.provider);
   });
 }
 
@@ -781,11 +802,13 @@ function updateSwitcherModelLabel() {
     gemini:  state.geminiModel,
     groq:    state.groqModel,
     mistral: state.mistralModel,
+    ollama:  state.ollamaModel,
   };
   el.activeModelName.textContent = labels[state.provider] || '';
 }
 
-[el.switchGemini, el.switchGroq, el.switchMistral].forEach(btn => {
+[el.switchGemini, el.switchGroq, el.switchMistral, el.switchOllama].forEach(btn => {
+  if (!btn) return;
   btn.addEventListener('click', () => {
     const newProvider = btn.dataset.provider;
     if (newProvider === state.provider) return;
@@ -873,10 +896,11 @@ async function solveSelection(clearCache = false) {
     gemini:  state.apiKey,
     groq:    state.groqApiKey,
     mistral: state.mistralApiKey,
+    ollama:  state.ollamaApiKey,
   }[state.provider];
 
   if (!providerKey) {
-    const names = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral' };
+    const names = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama Cloud' };
     showToast(`⚙️ Add your ${names[state.provider]} API key in Settings first.`);
     openSettings();
     return;
@@ -890,7 +914,7 @@ async function solveSelection(clearCache = false) {
 
   setSolutionState('loading');
   disableOutputBtns();
-  const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral' };
+  const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama' };
 
   el.loadingSubText.textContent = `${providerNames[state.provider]} is analyzing your selection…`;
   if (isMobile() && window.showPanel) {
@@ -918,6 +942,12 @@ async function solveSelection(clearCache = false) {
       ];
     } else if (state.provider === 'mistral') {
       response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel);
+      state.chatHistory = [
+        { role: 'user',      content: '[Image provided]' },
+        { role: 'assistant', content: response }
+      ];
+    } else if (state.provider === 'ollama') {
+      response = await callOllamaChat(base64, state.ollamaApiKey, state.ollamaModel);
       state.chatHistory = [
         { role: 'user',      content: '[Image provided]' },
         { role: 'assistant', content: response }
@@ -968,6 +998,7 @@ async function sendFollowUp() {
     gemini:  state.apiKey,
     groq:    state.groqApiKey,
     mistral: state.mistralApiKey,
+    ollama:  state.ollamaApiKey,
   }[state.provider];
 
   disableOutputBtns();
@@ -987,6 +1018,10 @@ async function sendFollowUp() {
     } else if (state.provider === 'mistral') {
       state.chatHistory.push({ role: 'user', content: text });
       response = await callMistralFollowUp(state.chatHistory, providerKey, state.mistralModel);
+      state.chatHistory.push({ role: 'assistant', content: response });
+    } else if (state.provider === 'ollama') {
+      state.chatHistory.push({ role: 'user', content: text });
+      response = await callOllamaFollowUp(state.chatHistory, providerKey, state.ollamaModel);
       state.chatHistory.push({ role: 'assistant', content: response });
     }
 
@@ -1223,6 +1258,60 @@ async function callMistralFollowUp(messages, apiKey, model) {
   }
   const data = await res.json();
   return data?.choices?.[0]?.message?.content || '';
+}
+
+/**
+ * Ollama generic OpenAPI call logic
+ */
+async function callOllamaChat(base64, apiKey, model) {
+  const url = `/api/ollama`;
+  const messages = [
+    { role: 'system', content: SYSTEM_PROMPT },
+    {
+      role: 'user',
+      content: 'Please solve the question in this image.',
+      images: [base64]
+    }
+  ];
+
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+  const body = { model, messages, stream: false, options: { temperature: 0.25 } };
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error || `Ollama Cloud HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+  const text = data?.message?.content;
+  if (!text) throw new Error('Empty response from Ollama Cloud.');
+  return text;
+}
+
+async function callOllamaFollowUp(messages, apiKey, model) {
+  const url = `/api/ollama`;
+  const cleanMessages = messages.map(m => ({
+    role: m.role,
+    content: Array.isArray(m.content)
+      ? m.content.filter(c => c.type === 'text').map(c => c.text).join(' ')
+      : m.content,
+  }));
+  const fullMessages = [{ role: 'system', content: SYSTEM_PROMPT }, ...cleanMessages];
+  const headers = { 'Content-Type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+  
+  const body = { model, messages: fullMessages, stream: false, options: { temperature: 0.15 } };
+  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err?.error || `Ollama Cloud HTTP ${res.status}`);
+  }
+  const data = await res.json();
+  return data?.message?.content || '';
 }
 
 /* =========================================================

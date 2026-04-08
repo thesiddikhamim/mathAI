@@ -1288,8 +1288,8 @@ function appendAIMessage(raw) {
   aiMsg.className = 'chat-msg-ai';
   el.solutionContent.appendChild(aiMsg);
   renderMarkdown(raw, aiMsg);
-  scrollToBottom();
 }
+
 
 function scrollToBottom() {
   el.solutionContent.parentElement.scrollTop = el.solutionContent.parentElement.scrollHeight;

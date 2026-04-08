@@ -850,6 +850,7 @@ function updateSwitcherModelLabel() {
 });
 
 el.tryAgainBtn.addEventListener('click', () => {
+  // Try again only re-runs for the current provider, keeping other providers' cached answers.
   solveSelection(false);
 });
 
@@ -885,12 +886,18 @@ Formatting Rules (CRITICAL):
 
 el.solveSelBtn.addEventListener('click', e => {
   e.stopPropagation();
+  // "Solve" is a primary action that resets the entire answer cache for the selection.
   solveSelection(true);
 });
 
 
-async function solveSelection(clearCache = false) {
-  if (clearCache) {
+/**
+ * AI SOLVE — Main dispatcher
+ * @param {boolean} resetGlobalCache - If true, clears answers for ALL providers (e.g. for a brand-new selection).
+ *                                     If false, only overwrites the current provider's result (e.g. for "Try again").
+ */
+async function solveSelection(resetGlobalCache = false) {
+  if (resetGlobalCache) {
     state.answerCache = {};
   }
 
@@ -1638,6 +1645,7 @@ document.addEventListener('keydown', e => {
       activateTouchSelectMode();
       return;
     }
+    // Primary mobile "Solve" action clears global cache
     solveSelection(true);
   });
 

@@ -1264,7 +1264,8 @@ async function callMistralFollowUp(messages, apiKey, model) {
  * Ollama generic OpenAPI call logic
  */
 async function callOllamaChat(base64, apiKey, model) {
-  const url = `/api/ollama`;
+  const targetUrl = `https://ollama.com/api/chat`;
+  const url = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
     {
@@ -1292,7 +1293,8 @@ async function callOllamaChat(base64, apiKey, model) {
 }
 
 async function callOllamaFollowUp(messages, apiKey, model) {
-  const url = `/api/ollama`;
+  const targetUrl = `https://ollama.com/api/chat`;
+  const url = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
   const cleanMessages = messages.map(m => ({
     role: m.role,
     content: Array.isArray(m.content)

@@ -813,6 +813,39 @@ function updateSwitcherModelLabel() {
   if (el.labelOllama)  el.labelOllama.textContent  = state.ollamaModel.split(':')[0];
 }
 
+function initMobileSolutionHeaderInlineScroll() {
+  const header = document.querySelector('.solution-header');
+  const solutionBody = document.getElementById('solutionBody');
+  if (!header || !solutionBody) return;
+
+  const originalParent = header.parentElement;
+  const originalNext = header.nextElementSibling;
+
+  const restoreToOriginal = () => {
+    if (!originalParent) return;
+    if (originalNext && originalNext.parentElement === originalParent) {
+      originalParent.insertBefore(header, originalNext);
+    } else {
+      originalParent.insertBefore(header, originalParent.firstChild);
+    }
+  };
+
+  const sync = () => {
+    if (isMobile()) {
+      if (header.parentElement !== solutionBody) {
+        solutionBody.insertBefore(header, solutionBody.firstChild);
+      }
+    } else {
+      if (header.parentElement !== originalParent) {
+        restoreToOriginal();
+      }
+    }
+  };
+
+  window.addEventListener('resize', sync, { passive: true });
+  sync();
+}
+
 // Handle carousel interactions
 el.modelCarousel.querySelectorAll('.model-card').forEach(card => {
   card.addEventListener('click', () => {
@@ -850,6 +883,8 @@ el.modelCarousel.querySelectorAll('.model-card').forEach(card => {
     }
   });
 });
+
+initMobileSolutionHeaderInlineScroll();
 
 el.tryAgainBtn.addEventListener('click', () => {
   // Try again only re-runs for the current provider, keeping other providers' cached answers.

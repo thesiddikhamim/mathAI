@@ -163,7 +163,11 @@ function setSolutionState(mode) {
   el.emptyState.classList.toggle('hidden',       mode !== 'empty');
   el.loadingState.classList.toggle('hidden',     mode !== 'loading');
   el.solutionContent.classList.toggle('hidden',  mode !== 'content');
+  if (el.chatContainer) {
+    el.chatContainer.classList.toggle('hidden',  mode !== 'content');
+  }
 }
+
 
 function enableOutputBtns() {
   [el.copyBtn, el.copyLatexBtn, el.downloadBtn].forEach(b => b.disabled = false);
@@ -386,11 +390,12 @@ function resetFile() {
   el.uploadZone.classList.remove('hidden');
   el.fileInput.value = '';
   el.imgPreview.src  = '';
-  el.chatContainer.classList.add('hidden');
   clearSelection();
   setSolutionState('empty');
   disableOutputBtns();
 }
+
+
 
 function setHint(msg) {
   el.hintText.textContent = msg;
@@ -515,9 +520,9 @@ function onOverlayDown(e) {
   if (state.isSolved) {
     state.isSolved = false;
     setSolutionState('empty');
-    el.chatContainer.classList.add('hidden');
     setHint('Drag to select a new question');
   }
+
 
   const rect = el.selOverlay.getBoundingClientRect();
   sel.mode   = 'draw';
@@ -885,8 +890,8 @@ async function solveSelection(clearCache = false) {
 
   setSolutionState('loading');
   disableOutputBtns();
-  el.chatContainer.classList.add('hidden');
   const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral' };
+
   el.loadingSubText.textContent = `${providerNames[state.provider]} is analyzing your selection…`;
   if (isMobile() && window.showPanel) {
     window.showPanel('solution');
@@ -932,8 +937,8 @@ async function solveSelection(clearCache = false) {
     state.answerCache[state.provider].solutionHTML = el.solutionContent.innerHTML;
     enableOutputBtns();
     setHint('Done! ' + (isMobile() ? 'Switch to Solution tab to see the answer.' : 'Drag a new selection or ask a follow-up question below.'));
-    el.chatContainer.classList.remove('hidden');
     // Auto-navigate to solution on mobile
+
     if (isMobile()) {
       const tabSol = document.getElementById('tabSolution');
       if (tabSol) tabSol.click();
@@ -1550,8 +1555,8 @@ document.addEventListener('keydown', e => {
     if (state.isSolved) {
       state.isSolved = false;
       setSolutionState('empty');
-      el.chatContainer.classList.add('hidden');
     }
+
 
     const rect  = el.selOverlay.getBoundingClientRect();
     ptActive    = true;

@@ -344,6 +344,8 @@ function handleFile(file) {
 
   state.file     = file;
   state.rawResponse = '';
+  state.answerCache = {};
+
   el.fileName.textContent = file.name;
   el.uploadZone.classList.add('hidden');
   el.fileViewer.classList.remove('hidden');
@@ -377,6 +379,8 @@ function resetFile() {
   state.file = null; state.pdfDoc = null;
   state.fileType = null; state.curPage = 1;
   state.rawResponse = '';
+  state.answerCache = {};
+
 
   el.fileViewer.classList.add('hidden');
   el.uploadZone.classList.remove('hidden');
@@ -845,10 +849,15 @@ Formatting Rules (CRITICAL):
 
 el.solveSelBtn.addEventListener('click', e => {
   e.stopPropagation();
-  solveSelection();
+  solveSelection(true);
 });
 
-async function solveSelection() {
+
+async function solveSelection(clearCache = false) {
+  if (clearCache) {
+    state.answerCache = {};
+  }
+
   if (!sel.active || sel.w < MIN_SEL || sel.h < MIN_SEL) {
     showToast('Draw a selection first.');
     return;
@@ -957,7 +966,10 @@ async function sendFollowUp() {
   }[state.provider];
 
   disableOutputBtns();
+  const thinkingIndicator = appendThinkingIndicator();
+
   try {
+
     let response;
     if (state.provider === 'gemini') {
       state.chatHistory.push({ role: 'user', parts: [{ text }] });
@@ -985,8 +997,23 @@ async function sendFollowUp() {
     showToast('❌ Follow-up request failed.');
     console.error(err);
   } finally {
+    if (typeof thinkingIndicator !== 'undefined') thinkingIndicator.remove();
     enableOutputBtns();
   }
+}
+
+function appendThinkingIndicator() {
+  const div = document.createElement('div');
+  div.className = 'chat-msg-thinking';
+  div.innerHTML = `
+    <span>AI is thinking</span>
+    <div class="loading-dots">
+      <span></span><span></span><span></span>
+    </div>
+  `;
+  el.solutionContent.appendChild(div);
+  scrollToBottom();
+  return div;
 }
 
 /**
@@ -1387,7 +1414,7 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); openSettings();
   }
   if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-    if (sel.active) solveSelection();
+    if (sel.active) solveSelection(true);
   }
 });
 
@@ -1503,7 +1530,7 @@ document.addEventListener('keydown', e => {
       activateTouchSelectMode();
       return;
     }
-    solveSelection();
+    solveSelection(true);
   });
 
   /* ── Touch / Pointer events for selection overlay ───── */

@@ -853,6 +853,27 @@ body {
   margin-bottom: 24px;
 }
 
+.chat-msg-thinking {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--bg-secondary);
+  padding: 12px 20px;
+  border-radius: var(--radius-md);
+  margin-bottom: 24px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text-muted);
+  animation: fadeInUp 0.3s ease;
+}
+.chat-msg-thinking .loading-dots {
+  gap: 4px;
+}
+.chat-msg-thinking .loading-dots span {
+  width: 5px;
+  height: 5px;
+}
+
 /* ── Scrollbar ──────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 5px; height: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }

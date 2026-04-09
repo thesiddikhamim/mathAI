@@ -102,6 +102,7 @@ const el = {
   chatContainer: $("chatContainer"),
   chatInput: $("chatInput"),
   chatSendBtn: $("chatSendBtn"),
+  chatRegenerateBtn: $("chatRegenerateBtn"),
 
   // Toast
   toast: $("toast"),
@@ -147,6 +148,9 @@ const state = {
   isSolved: false,
   // Cache keyed by tab ID
   answerCache: {},
+  // Track running operations keyed by tab ID
+  runningJobs: {},
+  jobNodes: {}, // DOM elements for jobs running in the background
 };
 
 /* ── Selection state ────────────────────────────────────── */
@@ -1146,7 +1150,14 @@ function handleCarouselTabClick(newTabId, newProviderId, newModelId, cardEl) {
     state.isSolved = true;
     setSolutionState("content");
     enableOutputBtns();
-    showToast(`↩ Restored ${pName} answer`);
+  } else if (state.runningJobs[newTabId] && state.jobNodes[newTabId]) {
+    // Model is currently running, just switch DOM
+    state.isSolved = false;
+    setSolutionState("content");
+    el.solutionContent.innerHTML = "";
+    el.solutionContent.appendChild(state.jobNodes[newTabId]);
+    disableOutputBtns();
+    scrollToBottom();
   } else if (sel.active && sel.w >= MIN_SEL && sel.h >= MIN_SEL) {
     showToast(`Switching to ${pName} — analyzing…`);
     el.errorActions.classList.add("hidden");
@@ -1237,6 +1248,8 @@ el.solveAllBtn.addEventListener("click", (e) => {
 
 async function solveAllSelection() {
   state.answerCache = {};
+  state.runningJobs = {};
+  state.jobNodes = {};
   const currentTabId = state.activeTabId;
 
   if (!sel.active || sel.w < MIN_SEL || sel.h < MIN_SEL) {
@@ -1300,30 +1313,31 @@ async function solveAllSelection() {
   }
 
   toRun.forEach(async ({ provider, model, tabId }) => {
-    const isCurrent = tabId === currentTabId;
+    state.runningJobs[tabId] = true;
+    
+    let wrapper = document.createElement("div");
+    wrapper.className = "job-wrapper";
+    state.jobNodes[tabId] = wrapper;
 
-    // UI elements
+    let thinkingIndicator = appendThinkingIndicator(wrapper);
     let aiMsg = document.createElement("div");
     aiMsg.className = "chat-msg-ai";
-    let thinkingIndicator;
+    wrapper.appendChild(aiMsg);
 
-    if (isCurrent) {
-      thinkingIndicator = appendThinkingIndicator();
-      el.solutionContent.appendChild(aiMsg);
+    if (tabId === state.activeTabId) {
+      el.solutionContent.appendChild(wrapper);
     }
 
     let firstChunkReceived = false;
     const onChunk = (fullText, chunkText) => {
-      if (isCurrent) {
-        if (!firstChunkReceived) {
-          firstChunkReceived = true;
-          if (thinkingIndicator && thinkingIndicator.parentNode)
-            thinkingIndicator.remove();
-        }
-        renderMarkdown(fullText, aiMsg);
+      if (!firstChunkReceived) {
+        firstChunkReceived = true;
+        if (thinkingIndicator && thinkingIndicator.parentNode)
+          thinkingIndicator.remove();
+      }
+      renderMarkdown(fullText, aiMsg);
+      if (tabId === state.activeTabId) {
         scrollToBottom();
-      } else {
-        renderMarkdown(fullText, aiMsg);
       }
     };
 
@@ -1379,20 +1393,17 @@ async function solveAllSelection() {
         ];
       }
 
+      state.runningJobs[tabId] = false;
       state.answerCache[tabId] = {
         rawResponse: response,
         chatHistory: chatHist,
-        solutionHTML: isCurrent
-          ? el.solutionContent.innerHTML
-          : aiMsg.outerHTML,
+        solutionHTML: wrapper.innerHTML,
       };
 
-      if (isCurrent) {
+      if (tabId === state.activeTabId) {
         state.rawResponse = response;
         state.chatHistory = [...chatHist];
         state.isSolved = true;
-        if (thinkingIndicator && thinkingIndicator.parentNode)
-          thinkingIndicator.remove();
       }
       updateHintWhenAllDone();
     } catch (err) {
@@ -1402,19 +1413,21 @@ async function solveAllSelection() {
         err.message || "Unknown error",
       );
 
-      if (isCurrent) {
-        if (thinkingIndicator && thinkingIndicator.parentNode)
-          thinkingIndicator.remove();
+      state.runningJobs[tabId] = false;
+      if (thinkingIndicator && thinkingIndicator.parentNode)
+        thinkingIndicator.remove();
+      wrapper.insertAdjacentHTML("beforeend", errHtml);
+      
+      if (tabId === state.activeTabId) {
         setSolutionState("error");
         state.isSolved = false;
         el.errorActions.classList.remove("hidden");
-        el.solutionContent.insertAdjacentHTML("beforeend", errHtml);
         scrollToBottom();
       }
       state.answerCache[tabId] = {
         rawResponse: "",
         chatHistory: [],
-        solutionHTML: errHtml,
+        solutionHTML: wrapper.innerHTML,
       };
       updateHintWhenAllDone();
     }
@@ -1434,6 +1447,8 @@ async function solveAllSelection() {
 async function solveSelection(resetGlobalCache = false) {
   if (resetGlobalCache) {
     state.answerCache = {};
+    state.runningJobs = {};
+    state.jobNodes = {};
   }
   const currentTabId = state.activeTabId;
   if (!currentTabId) return;
@@ -1490,25 +1505,35 @@ async function solveSelection(resetGlobalCache = false) {
     window.showPanel("solution");
   }
 
+  let response = "";
+  let wrapper = document.createElement("div");
+  wrapper.className = "job-wrapper";
+  let thinkingIndicator = null;
+  state.jobNodes[currentTabId] = wrapper;
+
   try {
-    let response = "";
+    state.runningJobs[currentTabId] = true;
 
     // Create the container where chunks will go right away
     setSolutionState("content");
     el.solutionContent.innerHTML = "";
-    let thinkingIndicator = appendThinkingIndicator();
+    el.solutionContent.appendChild(wrapper);
+    
+    thinkingIndicator = appendThinkingIndicator(wrapper);
     const aiMsg = document.createElement("div");
     aiMsg.className = "chat-msg-ai";
-    el.solutionContent.appendChild(aiMsg);
+    wrapper.appendChild(aiMsg);
 
     let firstChunkReceived = false;
     const onChunk = (fullText, chunkText) => {
       if (!firstChunkReceived) {
         firstChunkReceived = true;
-        if (thinkingIndicator.parentNode) thinkingIndicator.remove();
+        if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
-      scrollToBottom();
+      if (currentTabId === state.activeTabId) {
+        scrollToBottom();
+      }
     };
 
     if (currentProvider === "gemini") {
@@ -1559,16 +1584,22 @@ async function solveSelection(resetGlobalCache = false) {
       ];
     }
 
-    state.rawResponse = response;
-    state.isSolved = true;
-    state.answerCache[currentTabId] = {
-      rawResponse: response,
-      chatHistory: [...state.chatHistory],
-      solutionHTML: el.solutionContent.innerHTML,
-    };
+    state.runningJobs[currentTabId] = false;
 
     if (thinkingIndicator && thinkingIndicator.parentNode)
       thinkingIndicator.remove();
+
+    state.answerCache[currentTabId] = {
+      rawResponse: response,
+      chatHistory: [...state.chatHistory],
+      solutionHTML: wrapper.innerHTML,
+    };
+
+    if (state.activeTabId === currentTabId) {
+      state.rawResponse = response;
+      state.isSolved = true;
+    }
+
     enableOutputBtns();
     setHint(
       "Done! " +
@@ -1582,17 +1613,28 @@ async function solveSelection(resetGlobalCache = false) {
       if (tabSol) tabSol.click();
     }
   } catch (err) {
-    el.solutionContent
-      .querySelectorAll(".chat-msg-thinking")
-      .forEach((el) => el.remove());
-    setSolutionState("error");
-    state.isSolved = false;
-    el.errorActions.classList.remove("hidden");
-    el.solutionContent.insertAdjacentHTML(
+    state.runningJobs[currentTabId] = false;
+    if (thinkingIndicator && thinkingIndicator.parentNode)
+      thinkingIndicator.remove();
+      
+    wrapper.insertAdjacentHTML(
       "beforeend",
-      getErrorHtml("AI request failed", err.message || "Something went wrong."),
+      getErrorHtml("AI request failed", err.message || "Something went wrong.")
     );
-    scrollToBottom();
+
+    state.answerCache[currentTabId] = {
+      rawResponse: "",
+      chatHistory: [],
+      solutionHTML: wrapper.innerHTML,
+    };
+
+    if (state.activeTabId === currentTabId) {
+      setSolutionState("error");
+      state.isSolved = false;
+      el.errorActions.classList.remove("hidden");
+      scrollToBottom();
+    }
+    
     console.error("AI error:", err);
     setHint("Something went wrong. Try again.");
   }
@@ -1600,6 +1642,10 @@ async function solveSelection(resetGlobalCache = false) {
 
 // Handle follow-up chat
 el.chatSendBtn.addEventListener("click", sendFollowUp);
+el.chatRegenerateBtn.addEventListener("click", () => {
+  // Retrying the entire selection run for the active tab
+  solveSelection(false);
+});
 el.chatInput.addEventListener("keydown", (e) => {
   if (e.key === "Enter") sendFollowUp();
 });
@@ -1612,8 +1658,6 @@ async function sendFollowUp() {
   if (!text) return;
   el.chatInput.value = "";
 
-  appendUserMessage(text);
-
   const providerKey = {
     gemini: state.apiKey,
     groq: state.groqApiKey,
@@ -1623,25 +1667,48 @@ async function sendFollowUp() {
 
   disableOutputBtns();
 
+  let response;
+  let wrapper = state.jobNodes[currentTabId];
+  if (!wrapper) {
+    wrapper = document.createElement("div");
+    wrapper.className = "job-wrapper";
+    wrapper.innerHTML = el.solutionContent.innerHTML;
+    state.jobNodes[currentTabId] = wrapper;
+  }
+  let thinkingIndicator = null;
+
   try {
-    let response;
+    state.runningJobs[currentTabId] = true;
+
+    if (!document.body.contains(wrapper)) {
+      el.solutionContent.innerHTML = "";
+      el.solutionContent.appendChild(wrapper);
+    } else {
+      if (!el.solutionContent.contains(wrapper) && currentTabId === state.activeTabId) {
+        el.solutionContent.appendChild(wrapper);
+      }
+    }
+
+    appendUserMessage(text, wrapper);
 
     // Append thinking indicator
-    let thinkingIndicator = appendThinkingIndicator();
+    thinkingIndicator = appendThinkingIndicator(wrapper);
 
     // Create the container for the AI message right away
     const aiMsg = document.createElement("div");
     aiMsg.className = "chat-msg-ai";
-    el.solutionContent.appendChild(aiMsg);
+    wrapper.appendChild(aiMsg);
 
     let firstChunkReceived = false;
     const onChunk = (fullText, chunkText) => {
       if (!firstChunkReceived) {
         firstChunkReceived = true;
-        if (thinkingIndicator.parentNode) thinkingIndicator.remove();
+        if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
-      scrollToBottom();
+      if (currentTabId === state.activeTabId) {
+        scrollToBottom();
+      }
     };
 
     if (currentProvider === "gemini") {
@@ -1684,37 +1751,38 @@ async function sendFollowUp() {
 
     state.rawResponse += "\n\n" + response;
 
+    state.runningJobs[currentTabId] = false;
+
     // Update cache
     if (state.answerCache[currentTabId]) {
       state.answerCache[currentTabId].rawResponse = state.rawResponse;
       state.answerCache[currentTabId].chatHistory = [...state.chatHistory];
-      state.answerCache[currentTabId].solutionHTML =
-        currentTabId === state.activeTabId
-          ? el.solutionContent.innerHTML
-          : state.answerCache[currentTabId].solutionHTML;
+      state.answerCache[currentTabId].solutionHTML = wrapper.innerHTML;
     }
   } catch (err) {
-    el.solutionContent
-      .querySelectorAll(".chat-msg-thinking")
-      .forEach((el) => el.remove());
-    el.solutionContent.insertAdjacentHTML(
+    state.runningJobs[currentTabId] = false;
+    wrapper.querySelectorAll(".chat-msg-thinking").forEach((el) => el.remove());
+    wrapper.insertAdjacentHTML(
       "beforeend",
       getErrorHtml(
         "Follow-up request failed",
         err.message || "Something went wrong.",
       ),
     );
-    scrollToBottom();
+    if (currentTabId === state.activeTabId) {
+      scrollToBottom();
+    }
     console.error(err);
   } finally {
-    el.solutionContent
-      .querySelectorAll(".chat-msg-thinking")
-      .forEach((el) => el.remove());
+    wrapper.querySelectorAll(".chat-msg-thinking").forEach((el) => el.remove());
+    if (state.answerCache[currentTabId]) {
+      state.answerCache[currentTabId].solutionHTML = wrapper.innerHTML;
+    }
     enableOutputBtns();
   }
 }
 
-function appendThinkingIndicator() {
+function appendThinkingIndicator(container = el.solutionContent) {
   const div = document.createElement("div");
   div.className = "chat-msg-thinking";
   div.innerHTML = `
@@ -1723,8 +1791,8 @@ function appendThinkingIndicator() {
       <span></span><span></span><span></span>
     </div>
   `;
-  el.solutionContent.appendChild(div);
-  scrollToBottom();
+  container.appendChild(div);
+  if (container === el.solutionContent) scrollToBottom();
   return div;
 }
 
@@ -2126,12 +2194,14 @@ function renderSolution(raw) {
   el.solutionContent.parentElement.scrollTop = 0;
 }
 
-function appendUserMessage(text) {
+function appendUserMessage(text, container = el.solutionContent) {
   const userMsg = document.createElement("div");
   userMsg.className = "chat-msg-user";
   userMsg.textContent = text;
-  el.solutionContent.appendChild(userMsg);
-  scrollToBottom();
+  container.appendChild(userMsg);
+  if (container === el.solutionContent || el.solutionContent.contains(container)) {
+    scrollToBottom();
+  }
 }
 
 function appendAIMessage(raw) {

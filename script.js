@@ -886,11 +886,11 @@ el.modelCarousel.querySelectorAll('.model-card').forEach(card => {
       setSolutionState('content');
       enableOutputBtns();
       showToast(`↩ Restored ${newProvider} answer`);
-    } else if (state.isSolved || !el.errorActions.classList.contains('hidden')) {
-      showToast(`Switching to ${newProvider} — re-analyzing…`);
-      el.errorActions.classList.add('hidden');
-      solveSelection();
-    }
+    } else if (sel.active && sel.w >= MIN_SEL && sel.h >= MIN_SEL) {
+        showToast(`Switching to ${newProvider} — analyzing…`);
+        el.errorActions.classList.add('hidden');
+        solveSelection(false);
+      }
   });
 });
 
@@ -944,9 +944,11 @@ el.solveSelBtn.addEventListener('click', e => {
  *                                     If false, only overwrites the current provider's result (e.g. for "Try again").
  */
 async function solveSelection(resetGlobalCache = false) {
-  if (resetGlobalCache) {
-    state.answerCache = {};
-  }
+    if (resetGlobalCache) {
+      state.answerCache = {};
+    }
+    const currentProvider = state.provider; // Capture explicitly for this run to prevent race conditions when switching tabs
+
 
   if (!sel.active || sel.w < MIN_SEL || sel.h < MIN_SEL) {
     showToast('Draw a selection first.');
@@ -959,11 +961,11 @@ async function solveSelection(resetGlobalCache = false) {
     groq:    state.groqApiKey,
     mistral: state.mistralApiKey,
     ollama:  state.ollamaApiKey,
-  }[state.provider];
+  }[currentProvider];
 
   if (!providerKey) {
     const names = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama Cloud' };
-    showToast(`⚙️ Add your ${names[state.provider]} API key in Settings first.`);
+    showToast(`⚙️ Add your ${names[currentProvider]} API key in Settings first.`);
     openSettings();
     return;
   }
@@ -982,7 +984,7 @@ async function solveSelection(resetGlobalCache = false) {
 
   const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama' };
 
-  el.loadingSubText.textContent = `${providerNames[state.provider]} is analyzing your selection…`;
+  el.loadingSubText.textContent = `${providerNames[currentProvider]} is analyzing your selection…`;
   if (isMobile() && window.showPanel) {
     window.showPanel('solution');
   }
@@ -1008,7 +1010,7 @@ async function solveSelection(resetGlobalCache = false) {
       scrollToBottom();
     };
 
-    if (state.provider === 'gemini') {
+    if (currentProvider === 'gemini') {
       state.chatHistory = [
         {
           role: 'user',
@@ -1018,19 +1020,19 @@ async function solveSelection(resetGlobalCache = false) {
         }
       ];
       response = await callGeminiChat(state.chatHistory, state.apiKey, state.geminiModel, onChunk);
-    } else if (state.provider === 'groq') {
+    } else if (currentProvider === 'groq') {
       response = await callGroqChat(base64, state.groqApiKey, state.groqModel, onChunk);
       state.chatHistory = [
         { role: 'user',      content: '[Image provided]' },
         { role: 'assistant', content: response }
       ];
-    } else if (state.provider === 'mistral') {
+    } else if (currentProvider === 'mistral') {
       response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel, onChunk);
       state.chatHistory = [
         { role: 'user',      content: '[Image provided]' },
         { role: 'assistant', content: response }
       ];
-    } else if (state.provider === 'ollama') {
+    } else if (currentProvider === 'ollama') {
       response = await callOllamaChat(base64, state.ollamaApiKey, state.ollamaModel, onChunk);
       state.chatHistory = [
         { role: 'user',      content: '[Image provided]' },
@@ -1040,7 +1042,7 @@ async function solveSelection(resetGlobalCache = false) {
 
     state.rawResponse = response;
     state.isSolved = true;
-    state.answerCache[state.provider] = {
+    state.answerCache[currentProvider] = {
       rawResponse:  response,
       chatHistory:  [...state.chatHistory],
       solutionHTML: el.solutionContent.innerHTML,
@@ -1072,6 +1074,7 @@ el.chatInput.addEventListener('keydown', e => {
 });
 
 async function sendFollowUp() {
+    const currentProvider = state.provider;
   const text = el.chatInput.value.trim();
   if (!text) return;
   el.chatInput.value = '';
@@ -1083,7 +1086,7 @@ async function sendFollowUp() {
     groq:    state.groqApiKey,
     mistral: state.mistralApiKey,
     ollama:  state.ollamaApiKey,
-  }[state.provider];
+  }[currentProvider];
 
   disableOutputBtns();
 
@@ -1108,19 +1111,19 @@ async function sendFollowUp() {
       scrollToBottom();
     };
 
-    if (state.provider === 'gemini') {
+    if (currentProvider === 'gemini') {
       state.chatHistory.push({ role: 'user', parts: [{ text }] });
       response = await callGeminiChat(state.chatHistory, providerKey, state.geminiModel, onChunk);
       state.chatHistory.push({ role: 'model', parts: [{ text: response }] });
-    } else if (state.provider === 'groq') {
+    } else if (currentProvider === 'groq') {
       state.chatHistory.push({ role: 'user', content: text });
       response = await callGroqFollowUp(state.chatHistory, providerKey, state.groqModel, onChunk);
       state.chatHistory.push({ role: 'assistant', content: response });
-    } else if (state.provider === 'mistral') {
+    } else if (currentProvider === 'mistral') {
       state.chatHistory.push({ role: 'user', content: text });
       response = await callMistralFollowUp(state.chatHistory, providerKey, state.mistralModel, onChunk);
       state.chatHistory.push({ role: 'assistant', content: response });
-    } else if (state.provider === 'ollama') {
+    } else if (currentProvider === 'ollama') {
       state.chatHistory.push({ role: 'user', content: text });
       response = await callOllamaFollowUp(state.chatHistory, providerKey, state.ollamaModel, onChunk);
       state.chatHistory.push({ role: 'assistant', content: response });
@@ -1129,10 +1132,10 @@ async function sendFollowUp() {
     state.rawResponse += '\n\n' + response;
     
     // Update cache
-    if (state.answerCache[state.provider]) {
-      state.answerCache[state.provider].rawResponse  = state.rawResponse;
-      state.answerCache[state.provider].chatHistory  = [...state.chatHistory];
-      state.answerCache[state.provider].solutionHTML = el.solutionContent.innerHTML;
+    if (state.answerCache[currentProvider]) {
+      state.answerCache[currentProvider].rawResponse  = state.rawResponse;
+      state.answerCache[currentProvider].chatHistory  = [...state.chatHistory];
+      state.answerCache[currentProvider].solutionHTML = (currentProvider === state.provider) ? el.solutionContent.innerHTML : state.answerCache[currentProvider].solutionHTML;
     }
   } catch (err) {
     if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();

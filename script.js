@@ -498,8 +498,25 @@ function loadSettings() {
   if (ok) state.ollamaApiKey = ok;
 
   try {
-    if (ep) state.enabledProviders = JSON.parse(ep);
-    if (sm) state.selectedModels = JSON.parse(sm);
+    if (ep) {
+       const parsedEp = JSON.parse(ep);
+       for (const p in state.enabledProviders) {
+         if (parsedEp[p] !== undefined) {
+           state.enabledProviders[p] = !!parsedEp[p];
+         }
+       }
+    }
+    if (sm) {
+      const parsedSm = JSON.parse(sm);
+      for (const p in state.selectedModels) {
+        if (parsedSm[p] !== undefined && Array.isArray(parsedSm[p])) {
+          const uniqueModels = [...new Set(parsedSm[p])];
+          state.selectedModels[p] = uniqueModels.filter(mId => 
+            AVAILABLE_MODELS[p] && AVAILABLE_MODELS[p].some(m => m.id === mId)
+          );
+        }
+      }
+    }
   } catch(e) {}
   
   if (activeTabId) state.activeTabId = activeTabId;
@@ -1077,7 +1094,7 @@ function renderModelCarousel() {
         </div>
         <div class="card-info">
           <span class="card-label">${p.name}</span>
-          <span class="card-sublabel">${modelInfo.label.split(" ").slice(0,2).join(" ")}</span>
+          <span class="card-sublabel">${modelInfo.label}</span>
         </div>
       `;
 

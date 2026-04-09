@@ -4,153 +4,158 @@
  * to Gemini Vision API → render solution with LaTeX/Markdown.
  */
 
-'use strict';
+"use strict";
 
 /* ── PDF.js worker ──────────────────────────────────────── */
-if (typeof pdfjsLib !== 'undefined') {
+if (typeof pdfjsLib !== "undefined") {
   pdfjsLib.GlobalWorkerOptions.workerSrc =
-    'https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
+    "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
 }
 
 /* ── DOM refs ───────────────────────────────────────────── */
-const $ = id => document.getElementById(id);
+const $ = (id) => document.getElementById(id);
 
 const el = {
   // Header
-  darkToggle:   $('darkModeToggle'),
-  sunIcon:      document.querySelector('.sun-icon'),
-  moonIcon:     document.querySelector('.moon-icon'),
-  settingsBtn:  $('settingsToggle'),
+  darkToggle: $("darkModeToggle"),
+  sunIcon: document.querySelector(".sun-icon"),
+  moonIcon: document.querySelector(".moon-icon"),
+  settingsBtn: $("settingsToggle"),
 
   // Settings
-  settingsOv:   $('settingsOverlay'),
-  settingsClose:$('settingsClose'),
-  apiKeyInput:  $('apiKeyInput'),
-  toggleKeyVis: $('toggleKeyVisibility'),
-  eyeOpen:      document.querySelector('.eye-open'),
-  eyeClosed:    document.querySelector('.eye-closed'),
-  geminiModelSelect: $('geminiModelSelect'),
+  settingsOv: $("settingsOverlay"),
+  settingsClose: $("settingsClose"),
+  apiKeyInput: $("apiKeyInput"),
+  toggleKeyVis: $("toggleKeyVisibility"),
+  eyeOpen: document.querySelector(".eye-open"),
+  eyeClosed: document.querySelector(".eye-closed"),
+  geminiModelSelect: $("geminiModelSelect"),
   // Groq
-  groqApiKeyInput:  $('groqApiKeyInput'),
-  toggleGroqKeyVis: $('toggleGroqKeyVis'),
-  groqModelSelect:  $('groqModelSelect'),
+  groqApiKeyInput: $("groqApiKeyInput"),
+  toggleGroqKeyVis: $("toggleGroqKeyVis"),
+  groqModelSelect: $("groqModelSelect"),
   // Mistral
-  mistralApiKeyInput:  $('mistralApiKeyInput'),
-  toggleMistralKeyVis: $('toggleMistralKeyVis'),
-  mistralModelSelect:  $('mistralModelSelect'),
+  mistralApiKeyInput: $("mistralApiKeyInput"),
+  toggleMistralKeyVis: $("toggleMistralKeyVis"),
+  mistralModelSelect: $("mistralModelSelect"),
   // Ollama
-  ollamaApiKeyInput:   $('ollamaApiKeyInput'),
-  toggleOllamaKeyVis:  $('toggleOllamaKeyVis'),
-  ollamaModelSelect:   $('ollamaModelSelect'),
+  ollamaApiKeyInput: $("ollamaApiKeyInput"),
+  toggleOllamaKeyVis: $("toggleOllamaKeyVis"),
+  ollamaModelSelect: $("ollamaModelSelect"),
   // Settings actions
-  saveKey:      $('saveApiKey'),
-  clearKey:     $('clearApiKey'),
-  settingsSt:   $('settingsStatus'),
+  saveKey: $("saveApiKey"),
+  clearKey: $("clearApiKey"),
+  settingsSt: $("settingsStatus"),
 
   // Upload
-  uploadZone:   $('uploadZone'),
-  fileInput:    $('fileInput'),
-  fileViewer:   $('fileViewer'),
-  fileIcon:     $('fileIcon'),
-  fileName:     $('fileName'),
-  removeFile:   $('removeFile'),
+  uploadZone: $("uploadZone"),
+  fileInput: $("fileInput"),
+  fileViewer: $("fileViewer"),
+  fileIcon: $("fileIcon"),
+  fileName: $("fileName"),
+  removeFile: $("removeFile"),
 
   // PDF Nav
-  pdfNav:       $('pdfNav'),
-  prevPage:     $('prevPage'),
-  nextPage:     $('nextPage'),
-  pageInput:    $('pageInput'),
-  pageTotal:    $('pageTotal'),
+  pdfNav: $("pdfNav"),
+  prevPage: $("prevPage"),
+  nextPage: $("nextPage"),
+  pageInput: $("pageInput"),
+  pageTotal: $("pageTotal"),
 
   // Viewer
-  pdfCanvas:    $('pdfCanvas'),
-  imgPreview:   $('imagePreview'),
-  viewerBody:   $('viewerBody'),
-  hintText:     $('hintText'),
+  pdfCanvas: $("pdfCanvas"),
+  imgPreview: $("imagePreview"),
+  viewerBody: $("viewerBody"),
+  hintText: $("hintText"),
 
   // Selection overlay
-  selOverlay:   $('selOverlay'),
-  selBox:       $('selBox'),
-  maskTop:      $('maskTop'),
-  maskBottom:   $('maskBottom'),
-  maskLeft:     $('maskLeft'),
-  maskRight:    $('maskRight'),
-  solveSelBtn:  $('solveSelBtn'),
-  solveAllBtn:  $('solveAllBtn'),
-  clearSelBtn:  $('clearSelBtn'),
+  selOverlay: $("selOverlay"),
+  selBox: $("selBox"),
+  maskTop: $("maskTop"),
+  maskBottom: $("maskBottom"),
+  maskLeft: $("maskLeft"),
+  maskRight: $("maskRight"),
+  solveSelBtn: $("solveSelBtn"),
+  solveAllBtn: $("solveAllBtn"),
+  clearSelBtn: $("clearSelBtn"),
 
   // Solution
-  downloadBtn:  $('downloadBtn'),
-  copyLatexBtn: $('copyLatexBtn'),
-  copyBtn:      $('copyBtn'),
-  emptyState:   $('emptyState'),
-  loadingState: $('loadingState'),
-  loadingSubText: $('loadingSubText'),
-  errorActions:   $('errorActions'),
-  tryAgainBtn:    $('tryAgainBtn'),
-  emptySubText:   $('emptySubText'),
-  solutionContent: $('solutionContent'),
+  downloadBtn: $("downloadBtn"),
+  copyLatexBtn: $("copyLatexBtn"),
+  copyBtn: $("copyBtn"),
+  emptyState: $("emptyState"),
+  loadingState: $("loadingState"),
+  loadingSubText: $("loadingSubText"),
+  errorActions: $("errorActions"),
+  tryAgainBtn: $("tryAgainBtn"),
+  emptySubText: $("emptySubText"),
+  solutionContent: $("solutionContent"),
 
   // Carousel Switcher
-  modelCarousel:   $('modelCarousel'),
-  labelGemini:     $('labelGemini'),
-  labelMistral:    $('labelMistral'),
-  labelGroq:       $('labelGroq'),
-  labelOllama:     $('labelOllama'),
+  modelCarousel: $("modelCarousel"),
+  labelGemini: $("labelGemini"),
+  labelMistral: $("labelMistral"),
+  labelGroq: $("labelGroq"),
+  labelOllama: $("labelOllama"),
 
   // Chat
-  chatContainer:$('chatContainer'),
-  chatInput:    $('chatInput'),
-  chatSendBtn:  $('chatSendBtn'),
+  chatContainer: $("chatContainer"),
+  chatInput: $("chatInput"),
+  chatSendBtn: $("chatSendBtn"),
 
   // Toast
-  toast:        $('toast'),
+  toast: $("toast"),
 
   // PDF Template
-  pdfTemplate:  $('pdfTemplate'),
-  pdfDate:      $('pdfDate'),
-  pdfModel:     $('pdfModel'),
-  pdfQuestionImg: $('pdfQuestionImg'),
-  pdfSolutionContent: $('pdfSolutionContent'),
+  pdfTemplate: $("pdfTemplate"),
+  pdfDate: $("pdfDate"),
+  pdfModel: $("pdfModel"),
+  pdfQuestionImg: $("pdfQuestionImg"),
+  pdfSolutionContent: $("pdfSolutionContent"),
 };
 
 /* ── App state ──────────────────────────────────────────── */
 const state = {
-  fileType:    null,     // 'image' | 'pdf'
-  file:        null,
-  pdfDoc:      null,
-  curPage:     1,
-  totalPages:  0,
-  rawResponse: '',
+  fileType: null, // 'image' | 'pdf'
+  file: null,
+  pdfDoc: null,
+  curPage: 1,
+  totalPages: 0,
+  rawResponse: "",
   // Per-provider credentials & models
-  apiKey:         '',
-  groqApiKey:     '',
-  mistralApiKey:  '',
-  ollamaApiKey:   '',
-  geminiModel:    'gemini-2.5-pro',
-  groqModel:      'meta-llama/llama-4-scout-17b-16e-instruct',
-  mistralModel:   'mistral-large-latest',
-  ollamaModel:    'gemma4:31b-cloud',
+  apiKey: "",
+  groqApiKey: "",
+  mistralApiKey: "",
+  ollamaApiKey: "",
+  geminiModel: "gemini-2.5-pro",
+  groqModel: "meta-llama/llama-4-scout-17b-16e-instruct",
+  mistralModel: "mistral-large-latest",
+  ollamaModel: "gemma4:31b-cloud",
   // Active provider
-  provider:    'gemini',  // 'gemini' | 'groq' | 'mistral'
+  provider: "gemini", // 'gemini' | 'groq' | 'mistral'
   chatHistory: [],
-  isSolved:    false,
+  isSolved: false,
   // Per-provider answer cache: { provider: { rawResponse, chatHistory, solutionHTML } }
   answerCache: {},
 };
 
 /* ── Selection state ────────────────────────────────────── */
 const sel = {
-  active:   false,   // A selection exists
-  x: 0, y: 0,        // Top-left in overlay coordinates
-  w: 0, h: 0,        // Width & height
+  active: false, // A selection exists
+  x: 0,
+  y: 0, // Top-left in overlay coordinates
+  w: 0,
+  h: 0, // Width & height
 
   // Interaction
-  mode:     null,    // 'draw' | 'move' | 'resize'
-  handle:   null,    // Which handle is being dragged (nw,n,ne,e,se,s,sw,w)
-  startX:   0, startY: 0,
-  origX: 0,  origY: 0,
-  origW: 0,  origH: 0,
+  mode: null, // 'draw' | 'move' | 'resize'
+  handle: null, // Which handle is being dragged (nw,n,ne,e,se,s,sw,w)
+  startX: 0,
+  startY: 0,
+  origX: 0,
+  origY: 0,
+  origW: 0,
+  origH: 0,
 };
 
 const MIN_SEL = 20; // Minimum selection size in px
@@ -161,43 +166,55 @@ const MIN_SEL = 20; // Minimum selection size in px
 
 function showToast(msg, ms = 2800) {
   el.toast.textContent = msg;
-  el.toast.classList.remove('hidden');
-  requestAnimationFrame(() => requestAnimationFrame(() => el.toast.classList.add('show')));
+  el.toast.classList.remove("hidden");
+  requestAnimationFrame(() =>
+    requestAnimationFrame(() => el.toast.classList.add("show")),
+  );
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => {
-    el.toast.classList.remove('show');
-    setTimeout(() => el.toast.classList.add('hidden'), 350);
+    el.toast.classList.remove("show");
+    setTimeout(() => el.toast.classList.add("hidden"), 350);
   }, ms);
 }
 
 function setSolutionState(mode) {
-  el.emptyState.classList.toggle('hidden',       mode !== 'empty');
-  el.loadingState.classList.toggle('hidden',     mode !== 'loading');
-  el.solutionContent.classList.toggle('hidden',  mode !== 'content');
+  el.emptyState.classList.toggle("hidden", mode !== "empty");
+  el.loadingState.classList.toggle("hidden", mode !== "loading");
+  el.solutionContent.classList.toggle(
+    "hidden",
+    mode !== "content" && mode !== "error",
+  );
+
   if (el.chatContainer) {
-    el.chatContainer.classList.toggle('hidden',  mode !== 'content');
+    el.chatContainer.classList.toggle("hidden", mode !== "content");
   }
 }
 
-
 function enableOutputBtns() {
-  [el.copyBtn, el.copyLatexBtn, el.downloadBtn].forEach(b => b.disabled = false);
+  [el.copyBtn, el.copyLatexBtn, el.downloadBtn].forEach(
+    (b) => (b.disabled = false),
+  );
 }
 function disableOutputBtns() {
-  [el.copyBtn, el.copyLatexBtn, el.downloadBtn].forEach(b => b.disabled = true);
+  [el.copyBtn, el.copyLatexBtn, el.downloadBtn].forEach(
+    (b) => (b.disabled = true),
+  );
 }
 
 async function copyText(text) {
   try {
     await navigator.clipboard.writeText(text);
-    showToast('✓ Copied to clipboard');
+    showToast("✓ Copied to clipboard");
   } catch {
-    const ta = Object.assign(document.createElement('textarea'), {
-      value: text, style: 'position:fixed;opacity:0'
+    const ta = Object.assign(document.createElement("textarea"), {
+      value: text,
+      style: "position:fixed;opacity:0",
     });
     document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy'); ta.remove();
-    showToast('✓ Copied');
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    showToast("✓ Copied");
   }
 }
 
@@ -206,20 +223,20 @@ async function copyText(text) {
    ========================================================= */
 
 function applyTheme(dark) {
-  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
-  el.sunIcon.classList.toggle('hidden', dark);
-  el.moonIcon.classList.toggle('hidden', !dark);
-  localStorage.setItem('mathai-theme', dark ? 'dark' : 'light');
+  document.documentElement.setAttribute("data-theme", dark ? "dark" : "light");
+  el.sunIcon.classList.toggle("hidden", dark);
+  el.moonIcon.classList.toggle("hidden", !dark);
+  localStorage.setItem("mathai-theme", dark ? "dark" : "light");
 }
 
 function initTheme() {
-  const saved = localStorage.getItem('mathai-theme');
-  const sys   = window.matchMedia('(prefers-color-scheme: dark)').matches;
-  applyTheme(saved ? saved === 'dark' : sys);
+  const saved = localStorage.getItem("mathai-theme");
+  const sys = window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(saved ? saved === "dark" : sys);
 }
 
-el.darkToggle.addEventListener('click', () => {
-  applyTheme(document.documentElement.getAttribute('data-theme') !== 'dark');
+el.darkToggle.addEventListener("click", () => {
+  applyTheme(document.documentElement.getAttribute("data-theme") !== "dark");
 });
 
 /* =========================================================
@@ -227,115 +244,123 @@ el.darkToggle.addEventListener('click', () => {
    ========================================================= */
 
 function openSettings() {
-  el.apiKeyInput.value        = state.apiKey;
-  el.groqApiKeyInput.value    = state.groqApiKey;
+  el.apiKeyInput.value = state.apiKey;
+  el.groqApiKeyInput.value = state.groqApiKey;
   el.mistralApiKeyInput.value = state.mistralApiKey;
-  el.ollamaApiKeyInput.value  = state.ollamaApiKey;
-  el.geminiModelSelect.value  = state.geminiModel;
-  el.groqModelSelect.value    = state.groqModel;
+  el.ollamaApiKeyInput.value = state.ollamaApiKey;
+  el.geminiModelSelect.value = state.geminiModel;
+  el.groqModelSelect.value = state.groqModel;
   el.mistralModelSelect.value = state.mistralModel;
-  el.ollamaModelSelect.value  = state.ollamaModel;
-  el.settingsSt.classList.add('hidden');
-  el.settingsOv.classList.remove('hidden');
+  el.ollamaModelSelect.value = state.ollamaModel;
+  el.settingsSt.classList.add("hidden");
+  el.settingsOv.classList.remove("hidden");
   setTimeout(() => el.apiKeyInput.focus(), 80);
 }
 function closeSettings() {
-  el.settingsOv.classList.add('hidden');
+  el.settingsOv.classList.add("hidden");
 }
 
-el.settingsBtn.addEventListener('click', openSettings);
-el.settingsClose.addEventListener('click', closeSettings);
-el.settingsOv.addEventListener('click', e => { if (e.target === el.settingsOv) closeSettings(); });
+el.settingsBtn.addEventListener("click", openSettings);
+el.settingsClose.addEventListener("click", closeSettings);
+el.settingsOv.addEventListener("click", (e) => {
+  if (e.target === el.settingsOv) closeSettings();
+});
 
 // Eye toggle for each provider key
 function makeEyeToggle(btn, input) {
-  btn.addEventListener('click', () => {
-    const pw = input.type === 'password';
-    input.type = pw ? 'text' : 'password';
-    btn.querySelector('.eye-open').classList.toggle('hidden', pw);
-    btn.querySelector('.eye-closed').classList.toggle('hidden', !pw);
+  btn.addEventListener("click", () => {
+    const pw = input.type === "password";
+    input.type = pw ? "text" : "password";
+    btn.querySelector(".eye-open").classList.toggle("hidden", pw);
+    btn.querySelector(".eye-closed").classList.toggle("hidden", !pw);
   });
 }
-makeEyeToggle(el.toggleKeyVis,        el.apiKeyInput);
-makeEyeToggle(el.toggleGroqKeyVis,    el.groqApiKeyInput);
+makeEyeToggle(el.toggleKeyVis, el.apiKeyInput);
+makeEyeToggle(el.toggleGroqKeyVis, el.groqApiKeyInput);
 makeEyeToggle(el.toggleMistralKeyVis, el.mistralApiKeyInput);
-makeEyeToggle(el.toggleOllamaKeyVis,  el.ollamaApiKeyInput);
+makeEyeToggle(el.toggleOllamaKeyVis, el.ollamaApiKeyInput);
 
-el.saveKey.addEventListener('click', () => {
-  const gemKey     = el.apiKeyInput.value.trim();
-  const groqKey    = el.groqApiKeyInput.value.trim();
+el.saveKey.addEventListener("click", () => {
+  const gemKey = el.apiKeyInput.value.trim();
+  const groqKey = el.groqApiKeyInput.value.trim();
   const mistralKey = el.mistralApiKeyInput.value.trim();
-  const ollaKey    = el.ollamaApiKeyInput.value.trim();
+  const ollaKey = el.ollamaApiKeyInput.value.trim();
 
   if (!gemKey && !groqKey && !mistralKey && !ollaKey) {
-    showSettingsSt('Enter at least one API key.', 'error');
+    showSettingsSt("Enter at least one API key.", "error");
     return;
   }
 
-  state.apiKey        = gemKey;
-  state.groqApiKey    = groqKey;
+  state.apiKey = gemKey;
+  state.groqApiKey = groqKey;
   state.mistralApiKey = mistralKey;
-  state.ollamaApiKey  = ollaKey;
-  state.geminiModel   = el.geminiModelSelect.value;
-  state.groqModel     = el.groqModelSelect.value;
-  state.mistralModel  = el.mistralModelSelect.value;
-  state.ollamaModel   = el.ollamaModelSelect.value;
+  state.ollamaApiKey = ollaKey;
+  state.geminiModel = el.geminiModelSelect.value;
+  state.groqModel = el.groqModelSelect.value;
+  state.mistralModel = el.mistralModelSelect.value;
+  state.ollamaModel = el.ollamaModelSelect.value;
 
-  if (gemKey)     localStorage.setItem('mathai-apikey', gemKey);
-  else            localStorage.removeItem('mathai-apikey');
-  if (groqKey)    localStorage.setItem('mathai-groq-apikey', groqKey);
-  else            localStorage.removeItem('mathai-groq-apikey');
-  if (mistralKey) localStorage.setItem('mathai-mistral-apikey', mistralKey);
-  else            localStorage.removeItem('mathai-mistral-apikey');
-  if (ollaKey)    localStorage.setItem('mathai-ollama-apikey', ollaKey);
-  else            localStorage.removeItem('mathai-ollama-apikey');
+  if (gemKey) localStorage.setItem("mathai-apikey", gemKey);
+  else localStorage.removeItem("mathai-apikey");
+  if (groqKey) localStorage.setItem("mathai-groq-apikey", groqKey);
+  else localStorage.removeItem("mathai-groq-apikey");
+  if (mistralKey) localStorage.setItem("mathai-mistral-apikey", mistralKey);
+  else localStorage.removeItem("mathai-mistral-apikey");
+  if (ollaKey) localStorage.setItem("mathai-ollama-apikey", ollaKey);
+  else localStorage.removeItem("mathai-ollama-apikey");
 
-  localStorage.setItem('mathai-gemini-model',   state.geminiModel);
-  localStorage.setItem('mathai-groq-model',     state.groqModel);
-  localStorage.setItem('mathai-mistral-model',  state.mistralModel);
-  localStorage.setItem('mathai-ollama-model',   state.ollamaModel);
+  localStorage.setItem("mathai-gemini-model", state.geminiModel);
+  localStorage.setItem("mathai-groq-model", state.groqModel);
+  localStorage.setItem("mathai-mistral-model", state.mistralModel);
+  localStorage.setItem("mathai-ollama-model", state.ollamaModel);
 
   updateSwitcherModelLabel();
-  showSettingsSt('✓ All settings saved!', 'success');
+  showSettingsSt("✓ All settings saved!", "success");
   setTimeout(closeSettings, 1100);
 });
 
-el.clearKey.addEventListener('click', () => {
-  state.apiKey = ''; state.groqApiKey = ''; state.mistralApiKey = ''; state.ollamaApiKey = '';
-  el.apiKeyInput.value = ''; el.groqApiKeyInput.value = ''; el.mistralApiKeyInput.value = ''; el.ollamaApiKeyInput.value = '';
-  localStorage.removeItem('mathai-apikey');
-  localStorage.removeItem('mathai-groq-apikey');
-  localStorage.removeItem('mathai-mistral-apikey');
-  localStorage.removeItem('mathai-ollama-apikey');
-  showSettingsSt('All API keys cleared.', 'success');
+el.clearKey.addEventListener("click", () => {
+  state.apiKey = "";
+  state.groqApiKey = "";
+  state.mistralApiKey = "";
+  state.ollamaApiKey = "";
+  el.apiKeyInput.value = "";
+  el.groqApiKeyInput.value = "";
+  el.mistralApiKeyInput.value = "";
+  el.ollamaApiKeyInput.value = "";
+  localStorage.removeItem("mathai-apikey");
+  localStorage.removeItem("mathai-groq-apikey");
+  localStorage.removeItem("mathai-mistral-apikey");
+  localStorage.removeItem("mathai-ollama-apikey");
+  showSettingsSt("All API keys cleared.", "success");
 });
 
 function showSettingsSt(msg, type) {
   el.settingsSt.textContent = msg;
-  el.settingsSt.className   = `settings-status ${type}`;
-  el.settingsSt.classList.remove('hidden');
+  el.settingsSt.className = `settings-status ${type}`;
+  el.settingsSt.classList.remove("hidden");
 }
 
 function loadSettings() {
-  const k  = localStorage.getItem('mathai-apikey');
-  const gk = localStorage.getItem('mathai-groq-apikey');
-  const mk = localStorage.getItem('mathai-mistral-apikey');
-  const gm = localStorage.getItem('mathai-gemini-model');
-  const grm= localStorage.getItem('mathai-groq-model');
-  const mm = localStorage.getItem('mathai-mistral-model');
-  const ok = localStorage.getItem('mathai-ollama-apikey');
-  const om = localStorage.getItem('mathai-ollama-model');
-  const pr = localStorage.getItem('mathai-provider');
+  const k = localStorage.getItem("mathai-apikey");
+  const gk = localStorage.getItem("mathai-groq-apikey");
+  const mk = localStorage.getItem("mathai-mistral-apikey");
+  const gm = localStorage.getItem("mathai-gemini-model");
+  const grm = localStorage.getItem("mathai-groq-model");
+  const mm = localStorage.getItem("mathai-mistral-model");
+  const ok = localStorage.getItem("mathai-ollama-apikey");
+  const om = localStorage.getItem("mathai-ollama-model");
+  const pr = localStorage.getItem("mathai-provider");
 
-  if (k)   state.apiKey        = k;
-  if (gk)  state.groqApiKey    = gk;
-  if (mk)  state.mistralApiKey = mk;
-  if (gm)  state.geminiModel   = gm;
-  if (grm) state.groqModel     = grm;
-  if (mm)  state.mistralModel  = mm;
-  if (ok)  state.ollamaApiKey  = ok;
-  if (om)  state.ollamaModel   = om;
-  if (pr)  state.provider      = pr;
+  if (k) state.apiKey = k;
+  if (gk) state.groqApiKey = gk;
+  if (mk) state.mistralApiKey = mk;
+  if (gm) state.geminiModel = gm;
+  if (grm) state.groqModel = grm;
+  if (mm) state.mistralModel = mm;
+  if (ok) state.ollamaApiKey = ok;
+  if (om) state.ollamaModel = om;
+  if (pr) state.provider = pr;
 
   // Sync UI
   updateSwitcherPills();
@@ -346,88 +371,93 @@ function loadSettings() {
    FILE UPLOAD
    ========================================================= */
 
-el.uploadZone.addEventListener('dragover', e => {
+el.uploadZone.addEventListener("dragover", (e) => {
   e.preventDefault();
-  el.uploadZone.classList.add('drag-over');
+  el.uploadZone.classList.add("drag-over");
 });
-el.uploadZone.addEventListener('dragleave', () => el.uploadZone.classList.remove('drag-over'));
-el.uploadZone.addEventListener('drop', e => {
+el.uploadZone.addEventListener("dragleave", () =>
+  el.uploadZone.classList.remove("drag-over"),
+);
+el.uploadZone.addEventListener("drop", (e) => {
   e.preventDefault();
-  el.uploadZone.classList.remove('drag-over');
+  el.uploadZone.classList.remove("drag-over");
   if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
 });
-el.uploadZone.addEventListener('keydown', e => {
-  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.fileInput.click(); }
+el.uploadZone.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" || e.key === " ") {
+    e.preventDefault();
+    el.fileInput.click();
+  }
 });
-el.fileInput.addEventListener('change', e => {
+el.fileInput.addEventListener("change", (e) => {
   if (e.target.files[0]) handleFile(e.target.files[0]);
 });
-el.removeFile.addEventListener('click', resetFile);
+el.removeFile.addEventListener("click", resetFile);
 
 function handleFile(file) {
-  const ok = ['image/jpeg','image/png','application/pdf'];
+  const ok = ["image/jpeg", "image/png", "application/pdf"];
   if (!ok.includes(file.type)) {
-    showToast('❌ Unsupported type. Use JPG, PNG, or PDF.');
+    showToast("Unsupported type. Use JPG, PNG, or PDF.");
     return;
   }
 
-  state.file     = file;
-  state.rawResponse = '';
+  state.file = file;
+  state.rawResponse = "";
   state.answerCache = {};
 
   el.fileName.textContent = file.name;
-  el.uploadZone.classList.add('hidden');
-  el.fileViewer.classList.remove('hidden');
+  el.uploadZone.classList.add("hidden");
+  el.fileViewer.classList.remove("hidden");
   clearSelection();
-  setSolutionState('empty');
+  setSolutionState("empty");
   disableOutputBtns();
 
-  if (file.type === 'application/pdf') {
-    state.fileType = 'pdf';
-    el.fileIcon.textContent = 'PDF';
-    el.pdfCanvas.classList.remove('hidden');
-    el.imgPreview.classList.add('hidden');
-    el.pdfNav.classList.remove('hidden');
+  if (file.type === "application/pdf") {
+    state.fileType = "pdf";
+    el.fileIcon.textContent = "PDF";
+    el.pdfCanvas.classList.remove("hidden");
+    el.imgPreview.classList.add("hidden");
+    el.pdfNav.classList.remove("hidden");
     loadPDF(file);
   } else {
-    state.fileType = 'image';
-    el.fileIcon.textContent = 'IMG';
-    el.pdfCanvas.classList.add('hidden');
-    el.imgPreview.classList.remove('hidden');
-    el.pdfNav.classList.add('hidden');
+    state.fileType = "image";
+    el.fileIcon.textContent = "IMG";
+    el.pdfCanvas.classList.add("hidden");
+    el.imgPreview.classList.remove("hidden");
+    el.pdfNav.classList.add("hidden");
     loadImage(file);
   }
 
-  setHint(isMobile()
-    ? 'Tap the "Select" tab to choose a question region'
-    : 'Drag on the image to select a question, then click Solve'
+  setHint(
+    isMobile()
+      ? 'Tap the "Select" tab to choose a question region'
+      : "Drag on the image to select a question, then click Solve",
   );
 }
 
 function resetFile() {
-  state.file = null; state.pdfDoc = null;
-  state.fileType = null; state.curPage = 1;
-  state.rawResponse = '';
+  state.file = null;
+  state.pdfDoc = null;
+  state.fileType = null;
+  state.curPage = 1;
+  state.rawResponse = "";
   state.answerCache = {};
 
-
-  el.fileViewer.classList.add('hidden');
-  el.uploadZone.classList.remove('hidden');
-  el.fileInput.value = '';
-  el.imgPreview.src  = '';
+  el.fileViewer.classList.add("hidden");
+  el.uploadZone.classList.remove("hidden");
+  el.fileInput.value = "";
+  el.imgPreview.src = "";
   clearSelection();
-  setSolutionState('empty');
+  setSolutionState("empty");
   disableOutputBtns();
 }
-
-
 
 function setHint(msg) {
   el.hintText.textContent = msg;
 }
 
 function isMobile() {
-  return window.matchMedia('(max-width: 768px)').matches;
+  return window.matchMedia("(max-width: 768px)").matches;
 }
 
 /* =========================================================
@@ -447,13 +477,13 @@ function loadImage(file) {
 async function loadPDF(file) {
   const buf = await file.arrayBuffer();
   try {
-    state.pdfDoc      = await pdfjsLib.getDocument({ data: buf }).promise;
-    state.totalPages  = state.pdfDoc.numPages;
-    state.curPage     = 1;
+    state.pdfDoc = await pdfjsLib.getDocument({ data: buf }).promise;
+    state.totalPages = state.pdfDoc.numPages;
+    state.curPage = 1;
     await renderPDFPage(1);
   } catch (err) {
     console.error(err);
-    showToast('❌ Could not load PDF.');
+    showToast("Could not load PDF.");
   }
 }
 
@@ -461,26 +491,33 @@ async function renderPDFPage(n) {
   if (!state.pdfDoc) return;
   clearSelection();
   const page = await state.pdfDoc.getPage(n);
-  const vp   = page.getViewport({ scale: 1.8 });
-  const cvs  = el.pdfCanvas;
-  cvs.width  = vp.width;
+  const vp = page.getViewport({ scale: 1.8 });
+  const cvs = el.pdfCanvas;
+  cvs.width = vp.width;
   cvs.height = vp.height;
-  await page.render({ canvasContext: cvs.getContext('2d'), viewport: vp }).promise;
-  if(el.pageInput) el.pageInput.value = n;
-  if(el.pageTotal) el.pageTotal.textContent = state.totalPages;
-  el.prevPage.disabled        = n <= 1;
-  el.nextPage.disabled        = n >= state.totalPages;
+  await page.render({ canvasContext: cvs.getContext("2d"), viewport: vp })
+    .promise;
+  if (el.pageInput) el.pageInput.value = n;
+  if (el.pageTotal) el.pageTotal.textContent = state.totalPages;
+  el.prevPage.disabled = n <= 1;
+  el.nextPage.disabled = n >= state.totalPages;
 }
 
-el.prevPage.addEventListener('click', () => {
-  if (state.curPage > 1) { state.curPage--; renderPDFPage(state.curPage); }
+el.prevPage.addEventListener("click", () => {
+  if (state.curPage > 1) {
+    state.curPage--;
+    renderPDFPage(state.curPage);
+  }
 });
-el.nextPage.addEventListener('click', () => {
-  if (state.curPage < state.totalPages) { state.curPage++; renderPDFPage(state.curPage); }
+el.nextPage.addEventListener("click", () => {
+  if (state.curPage < state.totalPages) {
+    state.curPage++;
+    renderPDFPage(state.curPage);
+  }
 });
 
 if (el.pageInput) {
-  el.pageInput.addEventListener('change', (e) => {
+  el.pageInput.addEventListener("change", (e) => {
     let n = parseInt(e.target.value, 10);
     if (isNaN(n)) n = state.curPage;
     if (n < 1) n = 1;
@@ -504,34 +541,34 @@ if (el.pageInput) {
  * move/resize so we know when to start a fresh draw.
  */
 
-el.selOverlay.addEventListener('mousedown', onOverlayDown);
-document.addEventListener('mousemove',      onMouseMove);
-document.addEventListener('mouseup',        onMouseUp);
+el.selOverlay.addEventListener("mousedown", onOverlayDown);
+document.addEventListener("mousemove", onMouseMove);
+document.addEventListener("mouseup", onMouseUp);
 
 // Move existing selection
-el.selBox.addEventListener('mousedown', e => {
-  if (e.target.classList.contains('sel-handle')) return; // handled below
+el.selBox.addEventListener("mousedown", (e) => {
+  if (e.target.classList.contains("sel-handle")) return; // handled below
   e.stopPropagation();
-  sel.mode    = 'move';
-  sel.startX  = e.clientX;
-  sel.startY  = e.clientY;
-  sel.origX   = sel.x;
-  sel.origY   = sel.y;
-  el.selBox.style.cursor = 'grabbing';
+  sel.mode = "move";
+  sel.startX = e.clientX;
+  sel.startY = e.clientY;
+  sel.origX = sel.x;
+  sel.origY = sel.y;
+  el.selBox.style.cursor = "grabbing";
 });
 
 // Resize via handle
-el.selBox.querySelectorAll('.sel-handle').forEach(h => {
-  h.addEventListener('mousedown', e => {
+el.selBox.querySelectorAll(".sel-handle").forEach((h) => {
+  h.addEventListener("mousedown", (e) => {
     e.stopPropagation();
-    sel.mode   = 'resize';
+    sel.mode = "resize";
     sel.handle = h.dataset.dir;
     sel.startX = e.clientX;
     sel.startY = e.clientY;
-    sel.origX  = sel.x;
-    sel.origY  = sel.y;
-    sel.origW  = sel.w;
-    sel.origH  = sel.h;
+    sel.origX = sel.x;
+    sel.origY = sel.y;
+    sel.origW = sel.w;
+    sel.origH = sel.h;
   });
 });
 
@@ -540,17 +577,16 @@ function onOverlayDown(e) {
   // Only start fresh draw on primary button
   if (e.button !== 0) return;
 
-  // If already solved, a click on overlay (or start of new drag) 
+  // If already solved, a click on overlay (or start of new drag)
   // signals we want to start a new question.
   if (state.isSolved) {
     state.isSolved = false;
-    setSolutionState('empty');
-    setHint('Drag to select a new question');
+    setSolutionState("empty");
+    setHint("Drag to select a new question");
   }
 
-
   const rect = el.selOverlay.getBoundingClientRect();
-  sel.mode   = 'draw';
+  sel.mode = "draw";
   sel.startX = e.clientX - rect.left;
   sel.startY = e.clientY - rect.top;
   sel.x = sel.startX;
@@ -558,7 +594,7 @@ function onOverlayDown(e) {
   sel.w = 0;
   sel.h = 0;
   sel.active = false;
-  el.selBox.classList.add('hidden');
+  el.selBox.classList.add("hidden");
   hideMasks();
 }
 
@@ -566,7 +602,7 @@ function onMouseMove(e) {
   if (!sel.mode) return;
   const rect = el.selOverlay.getBoundingClientRect();
 
-  if (sel.mode === 'draw') {
+  if (sel.mode === "draw") {
     const mx = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
     const my = Math.min(Math.max(e.clientY - rect.top, 0), rect.height);
 
@@ -577,18 +613,16 @@ function onMouseMove(e) {
 
     if (sel.w > 5 || sel.h > 5) {
       sel.active = true;
-      el.selBox.classList.remove('hidden');
+      el.selBox.classList.remove("hidden");
       renderSelection();
     }
-
-  } else if (sel.mode === 'move') {
+  } else if (sel.mode === "move") {
     const dx = e.clientX - sel.startX;
     const dy = e.clientY - sel.startY;
-    sel.x = Math.max(0, Math.min(sel.origX + dx, rect.width  - sel.w));
+    sel.x = Math.max(0, Math.min(sel.origX + dx, rect.width - sel.w));
     sel.y = Math.max(0, Math.min(sel.origY + dy, rect.height - sel.h));
     renderSelection();
-
-  } else if (sel.mode === 'resize') {
+  } else if (sel.mode === "resize") {
     const dx = e.clientX - sel.startX;
     const dy = e.clientY - sel.startY;
     resizeFromHandle(sel.handle, dx, dy, rect);
@@ -597,19 +631,23 @@ function onMouseMove(e) {
 }
 
 function onMouseUp() {
-  if (sel.mode === 'draw') {
+  if (sel.mode === "draw") {
     if (sel.w < MIN_SEL || sel.h < MIN_SEL) {
       clearSelection();
     } else {
       sel.active = true;
       renderSelection();
-  setHint(isMobile() ? 'Drag the box to resize — tap Solve ⚡ when ready' : 'Adjust the selection, then click Solve');
+      setHint(
+        isMobile()
+          ? "Drag the box to resize — tap Solve ⚡ when ready"
+          : "Adjust the selection, then click Solve",
+      );
     }
   }
-  if (sel.mode === 'move') {
-    el.selBox.style.cursor = 'move';
+  if (sel.mode === "move") {
+    el.selBox.style.cursor = "move";
   }
-  sel.mode   = null;
+  sel.mode = null;
   sel.handle = null;
 }
 
@@ -618,40 +656,52 @@ function onMouseUp() {
  */
 function resizeFromHandle(dir, dx, dy, overlayRect) {
   let { origX, origY, origW, origH } = sel;
-  let x = origX, y = origY, w = origW, h = origH;
+  let x = origX,
+    y = origY,
+    w = origW,
+    h = origH;
 
-  if (dir.includes('e')) { w = Math.max(MIN_SEL, origW + dx); }
-  if (dir.includes('s')) { h = Math.max(MIN_SEL, origH + dy); }
-  if (dir.includes('w')) {
-    const nw = Math.max(MIN_SEL, origW - dx);
-    x = origX + (origW - nw); w = nw;
+  if (dir.includes("e")) {
+    w = Math.max(MIN_SEL, origW + dx);
   }
-  if (dir.includes('n')) {
+  if (dir.includes("s")) {
+    h = Math.max(MIN_SEL, origH + dy);
+  }
+  if (dir.includes("w")) {
+    const nw = Math.max(MIN_SEL, origW - dx);
+    x = origX + (origW - nw);
+    w = nw;
+  }
+  if (dir.includes("n")) {
     const nh = Math.max(MIN_SEL, origH - dy);
-    y = origY + (origH - nh); h = nh;
+    y = origY + (origH - nh);
+    h = nh;
   }
 
   // Clamp to overlay bounds
-  x = Math.max(0, Math.min(x, overlayRect.width  - MIN_SEL));
+  x = Math.max(0, Math.min(x, overlayRect.width - MIN_SEL));
   y = Math.max(0, Math.min(y, overlayRect.height - MIN_SEL));
-  w = Math.min(w, overlayRect.width  - x);
+  w = Math.min(w, overlayRect.width - x);
   h = Math.min(h, overlayRect.height - y);
 
-  sel.x = x; sel.y = y; sel.w = w; sel.h = h;
+  sel.x = x;
+  sel.y = y;
+  sel.w = w;
+  sel.h = h;
 }
 
 // Ensure handles have correct initial state
-el.selBox.querySelectorAll('.sel-handle').forEach(h => {
-  h.addEventListener('mousedown', e => {
+el.selBox.querySelectorAll(".sel-handle").forEach((h) => {
+  h.addEventListener("mousedown", (e) => {
     e.stopPropagation();
-    sel.mode   = 'resize';
+    sel.mode = "resize";
     sel.handle = h.dataset.dir;
     sel.startX = e.clientX;
     sel.startY = e.clientY;
-    sel.origX  = sel.x;
-    sel.origY  = sel.y;
-    sel.origW  = sel.w;
-    sel.origH  = sel.h;
+    sel.origX = sel.x;
+    sel.origY = sel.y;
+    sel.origW = sel.w;
+    sel.origH = sel.h;
   });
 });
 
@@ -668,85 +718,109 @@ function renderSelection() {
 
     // Position the selection box
     Object.assign(el.selBox.style, {
-      left:   x + 'px',
-      top:    y + 'px',
-      width:  w + 'px',
-      height: h + 'px',
+      left: x + "px",
+      top: y + "px",
+      width: w + "px",
+      height: h + "px",
     });
 
     // Update dark masks
     const ov = el.selOverlay.getBoundingClientRect();
-    const W  = ov.width;
-    const H  = ov.height;
+    const W = ov.width;
+    const H = ov.height;
 
-    Object.assign(el.maskTop.style,    { top: '0', left: '0', width: W+'px', height: y+'px' });
-    Object.assign(el.maskBottom.style, { top: (y+h)+'px', left: '0', width: W+'px', height: (H-y-h)+'px' });
-    Object.assign(el.maskLeft.style,   { top: y+'px', left: '0', width: x+'px', height: h+'px' });
-    Object.assign(el.maskRight.style,  { top: y+'px', left: (x+w)+'px', width: (W-x-w)+'px', height: h+'px' });
+    Object.assign(el.maskTop.style, {
+      top: "0",
+      left: "0",
+      width: W + "px",
+      height: y + "px",
+    });
+    Object.assign(el.maskBottom.style, {
+      top: y + h + "px",
+      left: "0",
+      width: W + "px",
+      height: H - y - h + "px",
+    });
+    Object.assign(el.maskLeft.style, {
+      top: y + "px",
+      left: "0",
+      width: x + "px",
+      height: h + "px",
+    });
+    Object.assign(el.maskRight.style, {
+      top: y + "px",
+      left: x + w + "px",
+      width: W - x - w + "px",
+      height: h + "px",
+    });
 
     // Show masks
-    [el.maskTop, el.maskBottom, el.maskLeft, el.maskRight].forEach(m => {
-      m.style.display = 'block';
+    [el.maskTop, el.maskBottom, el.maskLeft, el.maskRight].forEach((m) => {
+      m.style.display = "block";
     });
 
     // Update dimension label
     updateDimLabel();
 
     // Flip toolbar if near bottom
-    const nearBottom = (y + h + 60) > H;
-    el.selBox.classList.toggle('toolbar-above', nearBottom);
+    const nearBottom = y + h + 60 > H;
+    el.selBox.classList.toggle("toolbar-above", nearBottom);
 
     // Prevent toolbar from overflowing horizontally
-    const tb = document.getElementById('selToolbar');
+    const tb = document.getElementById("selToolbar");
     if (tb) {
-      tb.style.left = '';
-      tb.style.right = '';
-      tb.style.transform = '';
+      tb.style.left = "";
+      tb.style.right = "";
+      tb.style.transform = "";
       const tbW = tb.offsetWidth || 200; // fallback if offsetWidth 0
       const centerX = x + w / 2;
-      
+
       if (centerX - tbW / 2 < 10) {
-        tb.style.left = (10 - x) + 'px';
-        tb.style.transform = 'none';
+        tb.style.left = 10 - x + "px";
+        tb.style.transform = "none";
       } else if (centerX + tbW / 2 > W - 10) {
-        tb.style.left = 'auto';
-        tb.style.right = (10 - (W - (x + w))) + 'px';
-        tb.style.transform = 'none';
+        tb.style.left = "auto";
+        tb.style.right = 10 - (W - (x + w)) + "px";
+        tb.style.transform = "none";
       } else {
-        tb.style.left = '50%';
-        tb.style.transform = 'translateX(-50%)';
+        tb.style.left = "50%";
+        tb.style.transform = "translateX(-50%)";
       }
     }
   });
 }
 
 function updateDimLabel() {
-  let label = el.selBox.querySelector('.sel-dimensions');
+  let label = el.selBox.querySelector(".sel-dimensions");
   if (!label) {
-    label = document.createElement('div');
-    label.className = 'sel-dimensions';
+    label = document.createElement("div");
+    label.className = "sel-dimensions";
     el.selBox.prepend(label);
   }
   label.textContent = `${Math.round(sel.w)} × ${Math.round(sel.h)}`;
 }
 
 function hideMasks() {
-  [el.maskTop, el.maskBottom, el.maskLeft, el.maskRight].forEach(m => {
-    m.style.display = 'none';
+  [el.maskTop, el.maskBottom, el.maskLeft, el.maskRight].forEach((m) => {
+    m.style.display = "none";
   });
 }
 
 function clearSelection() {
-  sel.active = false; sel.mode = null;
-  sel.x = 0; sel.y = 0; sel.w = 0; sel.h = 0;
-  el.selBox.classList.add('hidden');
+  sel.active = false;
+  sel.mode = null;
+  sel.x = 0;
+  sel.y = 0;
+  sel.w = 0;
+  sel.h = 0;
+  el.selBox.classList.add("hidden");
   hideMasks();
 }
 
-el.clearSelBtn.addEventListener('click', e => {
+el.clearSelBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   clearSelection();
-  setHint('Drag on the image to select a question');
+  setHint("Drag on the image to select a question");
 });
 
 /* =========================================================
@@ -759,33 +833,33 @@ el.clearSelBtn.addEventListener('click', e => {
  * Returns base64 PNG string (no prefix).
  */
 function cropSelectionToBase64() {
-  const tmp = document.createElement('canvas');
-  const ctx = tmp.getContext('2d');
+  const tmp = document.createElement("canvas");
+  const ctx = tmp.getContext("2d");
 
   let source, naturalW, naturalH, displayW, displayH, offsetX, offsetY;
 
-  if (state.fileType === 'image') {
-    source   = el.imgPreview;
+  if (state.fileType === "image") {
+    source = el.imgPreview;
     naturalW = source.naturalWidth;
     naturalH = source.naturalHeight;
-    const r  = source.getBoundingClientRect();
+    const r = source.getBoundingClientRect();
     displayW = r.width;
     displayH = r.height;
     // Offset of image inside overlay
     const ov = el.selOverlay.getBoundingClientRect();
-    offsetX  = r.left - ov.left;
-    offsetY  = r.top  - ov.top;
+    offsetX = r.left - ov.left;
+    offsetY = r.top - ov.top;
   } else {
     // PDF canvas
-    source   = el.pdfCanvas;
-    naturalW = source.width;   // canvas pixel width (rendered at 1.8 scale)
+    source = el.pdfCanvas;
+    naturalW = source.width; // canvas pixel width (rendered at 1.8 scale)
     naturalH = source.height;
-    const r  = source.getBoundingClientRect();
+    const r = source.getBoundingClientRect();
     displayW = r.width;
     displayH = r.height;
     const ov = el.selOverlay.getBoundingClientRect();
-    offsetX  = r.left - ov.left;
-    offsetY  = r.top  - ov.top;
+    offsetX = r.left - ov.left;
+    offsetY = r.top - ov.top;
   }
 
   // Scale factor: natural pixels per display pixel
@@ -810,17 +884,17 @@ function cropSelectionToBase64() {
     finalH = Math.floor(cropH * ratio);
   }
 
-  tmp.width  = finalW;
+  tmp.width = finalW;
   tmp.height = finalH;
 
-  if (state.fileType === 'image') {
+  if (state.fileType === "image") {
     ctx.drawImage(source, cropX, cropY, cropW, cropH, 0, 0, finalW, finalH);
   } else {
     ctx.drawImage(source, cropX, cropY, cropW, cropH, 0, 0, finalW, finalH);
   }
 
   // Return base64 without the data
-  return tmp.toDataURL('image/jpeg', 0.8).split(',')[1];
+  return tmp.toDataURL("image/jpeg", 0.8).split(",")[1];
 }
 
 /* =========================================================
@@ -828,27 +902,32 @@ function cropSelectionToBase64() {
    ========================================================= */
 
 function updateSwitcherPills() {
-  const cards = el.modelCarousel.querySelectorAll('.model-card');
-  cards.forEach(card => {
+  const cards = el.modelCarousel.querySelectorAll(".model-card");
+  cards.forEach((card) => {
     const isActive = card.dataset.provider === state.provider;
-    card.classList.toggle('active', isActive);
+    card.classList.toggle("active", isActive);
     if (isActive) {
       // Scroll into view if not visible
-      card.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+      card.scrollIntoView({
+        behavior: "smooth",
+        inline: "center",
+        block: "nearest",
+      });
     }
   });
 }
 
 function updateSwitcherModelLabel() {
-  if (el.labelGemini)  el.labelGemini.textContent  = state.geminiModel;
-  if (el.labelGroq)    el.labelGroq.textContent    = state.groqModel.split('/').pop();
+  if (el.labelGemini) el.labelGemini.textContent = state.geminiModel;
+  if (el.labelGroq) el.labelGroq.textContent = state.groqModel.split("/").pop();
   if (el.labelMistral) el.labelMistral.textContent = state.mistralModel;
-  if (el.labelOllama)  el.labelOllama.textContent  = state.ollamaModel.split(':')[0];
+  if (el.labelOllama)
+    el.labelOllama.textContent = state.ollamaModel.split(":")[0];
 }
 
 function initMobileSolutionHeaderInlineScroll() {
-  const header = document.querySelector('.solution-header');
-  const solutionBody = document.getElementById('solutionBody');
+  const header = document.querySelector(".solution-header");
+  const solutionBody = document.getElementById("solutionBody");
   if (!header || !solutionBody) return;
 
   const originalParent = header.parentElement;
@@ -875,51 +954,51 @@ function initMobileSolutionHeaderInlineScroll() {
     }
   };
 
-  window.addEventListener('resize', sync, { passive: true });
+  window.addEventListener("resize", sync, { passive: true });
   sync();
 }
 
 // Handle carousel interactions
-el.modelCarousel.querySelectorAll('.model-card').forEach(card => {
-  card.addEventListener('click', () => {
+el.modelCarousel.querySelectorAll(".model-card").forEach((card) => {
+  card.addEventListener("click", () => {
     const newProvider = card.dataset.provider;
     if (newProvider === state.provider) return;
 
     // Save current provider's state into cache
     if (state.isSolved) {
       state.answerCache[state.provider] = {
-        rawResponse:  state.rawResponse,
-        chatHistory:  [...state.chatHistory],
+        rawResponse: state.rawResponse,
+        chatHistory: [...state.chatHistory],
         solutionHTML: el.solutionContent.innerHTML,
       };
     }
 
     state.provider = newProvider;
-    localStorage.setItem('mathai-provider', newProvider);
+    localStorage.setItem("mathai-provider", newProvider);
     updateSwitcherPills();
     updateSwitcherModelLabel();
 
     // Check if we have a cached answer for this provider
     const cached = state.answerCache[newProvider];
     if (cached) {
-      state.rawResponse  = cached.rawResponse;
-      state.chatHistory  = cached.chatHistory;
+      state.rawResponse = cached.rawResponse;
+      state.chatHistory = cached.chatHistory;
       el.solutionContent.innerHTML = cached.solutionHTML;
       state.isSolved = true;
-      setSolutionState('content');
+      setSolutionState("content");
       enableOutputBtns();
       showToast(`↩ Restored ${newProvider} answer`);
     } else if (sel.active && sel.w >= MIN_SEL && sel.h >= MIN_SEL) {
-        showToast(`Switching to ${newProvider} — analyzing…`);
-        el.errorActions.classList.add('hidden');
-        solveSelection(false);
-      }
+      showToast(`Switching to ${newProvider} — analyzing…`);
+      el.errorActions.classList.add("hidden");
+      solveSelection(false);
+    }
   });
 });
 
 initMobileSolutionHeaderInlineScroll();
 
-el.tryAgainBtn.addEventListener('click', () => {
+el.tryAgainBtn.addEventListener("click", () => {
   // Try again only re-runs for the current provider, keeping other providers' cached answers.
   solveSelection(false);
 });
@@ -954,13 +1033,13 @@ Formatting Rules (CRITICAL):
 - LaTeX: Ensure all math expressions are wrapped in proper LaTeX ($ for inline, $$ for block).
 - Conciseness: Keep reasoning direct and math-focused.`;
 
-el.solveSelBtn.addEventListener('click', e => {
+el.solveSelBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   // "Solve" is a primary action that resets the entire answer cache for the selection.
   solveSelection(true);
 });
 
-el.solveAllBtn.addEventListener('click', e => {
+el.solveAllBtn.addEventListener("click", (e) => {
   e.stopPropagation();
   solveAllSelection();
 });
@@ -970,136 +1049,189 @@ async function solveAllSelection() {
   const currentProvider = state.provider;
 
   if (!sel.active || sel.w < MIN_SEL || sel.h < MIN_SEL) {
-    showToast('Draw a selection first.');
+    showToast("Draw a selection first.");
     return;
   }
 
   const base64 = cropSelectionToBase64();
   if (!base64) {
-    showToast('❌ Could not capture the selection. Try again.');
+    showToast("Could not capture the selection. Try again.");
     return;
   }
-  
+
   // Available providers and display names
   const providersKeys = {
-    gemini:  state.apiKey,
-    groq:    state.groqApiKey,
+    gemini: state.apiKey,
+    groq: state.groqApiKey,
     mistral: state.mistralApiKey,
-    ollama:  state.ollamaApiKey,
+    ollama: state.ollamaApiKey,
   };
-  
-  const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama' };
-  const toRun = Object.keys(providersKeys).filter(k => providersKeys[k]);
-  
+
+  const providerNames = {
+    gemini: "Gemini",
+    groq: "Groq",
+    mistral: "Mistral",
+    ollama: "Ollama",
+  };
+  const toRun = Object.keys(providersKeys).filter((k) => providersKeys[k]);
+
   if (toRun.length === 0) {
-      showToast('⚙️ Add at least one API key in Settings first.');
-      openSettings();
-      return;
+    showToast("⚙️ Add at least one API key in Settings first.");
+    openSettings();
+    return;
   }
 
-  setSolutionState('loading');
+  setSolutionState("loading");
   disableOutputBtns();
   state.isSolved = false;
-  el.solutionContent.innerHTML = '';
-  el.errorActions.classList.add('hidden');
+  el.solutionContent.innerHTML = "";
+  el.errorActions.classList.add("hidden");
   el.loadingSubText.textContent = `All active models (${toRun.length}) are analyzing your selection…`;
-  
+
   if (isMobile() && window.showPanel) {
-    window.showPanel('solution');
+    window.showPanel("solution");
   }
-  
-  setSolutionState('content');
-  
+
+  setSolutionState("content");
+
   let overallDoneCount = 0;
   function updateHintWhenAllDone() {
-      overallDoneCount++;
-      if (overallDoneCount === toRun.length) {
-          enableOutputBtns();
-          setHint('Done! ' + (isMobile() ? 'Switch to Solution tab to see the answers.' : 'Try switching models via tabs or drag a new selection.'));
-      }
+    overallDoneCount++;
+    if (overallDoneCount === toRun.length) {
+      enableOutputBtns();
+      setHint(
+        "Done! " +
+          (isMobile()
+            ? "Switch to Solution tab to see the answers."
+            : "Try switching models via tabs or drag a new selection."),
+      );
+    }
   }
 
   toRun.forEach(async (provider) => {
-    const isCurrent = (provider === currentProvider);
-    
+    const isCurrent = provider === currentProvider;
+
     // UI elements
-    let aiMsg = document.createElement('div');
-    aiMsg.className = 'chat-msg-ai';
+    let aiMsg = document.createElement("div");
+    aiMsg.className = "chat-msg-ai";
     let thinkingIndicator;
-    
+
     if (isCurrent) {
-        thinkingIndicator = appendThinkingIndicator();
-        el.solutionContent.appendChild(aiMsg);
+      thinkingIndicator = appendThinkingIndicator();
+      el.solutionContent.appendChild(aiMsg);
     }
-    
+
     let firstChunkReceived = false;
     const onChunk = (fullText, chunkText) => {
       if (isCurrent) {
-          if (!firstChunkReceived) {
-             firstChunkReceived = true;
-             if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
-          }
-          renderMarkdown(fullText, aiMsg);
-          scrollToBottom();
+        if (!firstChunkReceived) {
+          firstChunkReceived = true;
+          if (thinkingIndicator && thinkingIndicator.parentNode)
+            thinkingIndicator.remove();
+        }
+        renderMarkdown(fullText, aiMsg);
+        scrollToBottom();
       } else {
-          renderMarkdown(fullText, aiMsg);
+        renderMarkdown(fullText, aiMsg);
       }
     };
-    
+
     try {
-        let response = '';
-        let chatHist = [];
-        
-        if (provider === 'gemini') {
-            chatHist = [{ role: 'user', parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64 } }] }];
-            response = await callGeminiChat(chatHist, state.apiKey, state.geminiModel, onChunk);
-        } else if (provider === 'groq') {
-            response = await callGroqChat(base64, state.groqApiKey, state.groqModel, onChunk);
-            chatHist = [{ role: 'user', content: '[Image provided]' }, { role: 'assistant', content: response }];
-        } else if (provider === 'mistral') {
-             response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel, onChunk);
-            chatHist = [{ role: 'user', content: '[Image provided]' }, { role: 'assistant', content: response }];
-        } else if (provider === 'ollama') {
-            response = await callOllamaChat(base64, state.ollamaApiKey, state.ollamaModel, onChunk);
-            chatHist = [{ role: 'user', content: '[Image provided]' }, { role: 'assistant', content: response }];
-        }
-        
-        state.answerCache[provider] = {
-            rawResponse: response,
-            chatHistory: chatHist,
-            solutionHTML: isCurrent ? el.solutionContent.innerHTML : aiMsg.outerHTML
-        };
-        
-        if (isCurrent) {
-           state.rawResponse = response;
-           state.chatHistory = [...chatHist];
-           state.isSolved = true;
-           if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
-        }
-        updateHintWhenAllDone();
+      let response = "";
+      let chatHist = [];
+
+      if (provider === "gemini") {
+        chatHist = [
+          {
+            role: "user",
+            parts: [{ inlineData: { mimeType: "image/jpeg", data: base64 } }],
+          },
+        ];
+        response = await callGeminiChat(
+          chatHist,
+          state.apiKey,
+          state.geminiModel,
+          onChunk,
+        );
+      } else if (provider === "groq") {
+        response = await callGroqChat(
+          base64,
+          state.groqApiKey,
+          state.groqModel,
+          onChunk,
+        );
+        chatHist = [
+          { role: "user", content: "[Image provided]" },
+          { role: "assistant", content: response },
+        ];
+      } else if (provider === "mistral") {
+        response = await callMistralChat(
+          base64,
+          state.mistralApiKey,
+          state.mistralModel,
+          onChunk,
+        );
+        chatHist = [
+          { role: "user", content: "[Image provided]" },
+          { role: "assistant", content: response },
+        ];
+      } else if (provider === "ollama") {
+        response = await callOllamaChat(
+          base64,
+          state.ollamaApiKey,
+          state.ollamaModel,
+          onChunk,
+        );
+        chatHist = [
+          { role: "user", content: "[Image provided]" },
+          { role: "assistant", content: response },
+        ];
+      }
+
+      state.answerCache[provider] = {
+        rawResponse: response,
+        chatHistory: chatHist,
+        solutionHTML: isCurrent
+          ? el.solutionContent.innerHTML
+          : aiMsg.outerHTML,
+      };
+
+      if (isCurrent) {
+        state.rawResponse = response;
+        state.chatHistory = [...chatHist];
+        state.isSolved = true;
+        if (thinkingIndicator && thinkingIndicator.parentNode)
+          thinkingIndicator.remove();
+      }
+      updateHintWhenAllDone();
     } catch (err) {
-        console.error('All-models AI error [' + provider + ']:', err);
-        const errMsg = '<div class="chat-msg-ai"><p>❌ Failed to analyze: ' + (err.message || 'Unknown error') + '</p></div>';
-        
-        if (isCurrent) {
-           if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
-           setSolutionState('empty');
-           state.isSolved = false;
-           el.errorActions.classList.remove('hidden');
-           showToast('❌ ' + (providerNames[provider] || provider) + ' failed.');
-        }
-        state.answerCache[provider] = {
-            rawResponse: "",
-            chatHistory: [],
-            solutionHTML: errMsg
-        };
-        updateHintWhenAllDone();
+      console.error("All-models AI error [" + provider + "]:", err);
+      const errHtml = getErrorHtml(
+        "Failed to analyze (" + (providerNames[provider] || provider) + ")",
+        err.message || "Unknown error",
+      );
+
+      if (isCurrent) {
+        if (thinkingIndicator && thinkingIndicator.parentNode)
+          thinkingIndicator.remove();
+        setSolutionState("error");
+        state.isSolved = false;
+        el.errorActions.classList.remove("hidden");
+        el.solutionContent.insertAdjacentHTML("beforeend", errHtml);
+        scrollToBottom();
+      }
+      state.answerCache[provider] = {
+        rawResponse: "",
+        chatHistory: [],
+        solutionHTML: errHtml,
+      };
+      updateHintWhenAllDone();
     }
   });
 
   if (isMobile()) {
-      const tabSol = document.getElementById('tabSolution');
-      if (tabSol) tabSol.click();
+    const tabSol = document.getElementById("tabSolution");
+    if (tabSol) tabSol.click();
   }
 }
 
@@ -1109,60 +1241,71 @@ async function solveAllSelection() {
  *                                     If false, only overwrites the current provider's result (e.g. for "Try again").
  */
 async function solveSelection(resetGlobalCache = false) {
-    if (resetGlobalCache) {
-      state.answerCache = {};
-    }
-    const currentProvider = state.provider; // Capture explicitly for this run to prevent race conditions when switching tabs
-
+  if (resetGlobalCache) {
+    state.answerCache = {};
+  }
+  const currentProvider = state.provider; // Capture explicitly for this run to prevent race conditions when switching tabs
 
   if (!sel.active || sel.w < MIN_SEL || sel.h < MIN_SEL) {
-    showToast('Draw a selection first.');
+    showToast("Draw a selection first.");
     return;
   }
 
   // Validate provider has an API key
   const providerKey = {
-    gemini:  state.apiKey,
-    groq:    state.groqApiKey,
+    gemini: state.apiKey,
+    groq: state.groqApiKey,
     mistral: state.mistralApiKey,
-    ollama:  state.ollamaApiKey,
+    ollama: state.ollamaApiKey,
   }[currentProvider];
 
   if (!providerKey) {
-    const names = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama Cloud' };
-    showToast(`⚙️ Add your ${names[currentProvider]} API key in Settings first.`);
+    const names = {
+      gemini: "Gemini",
+      groq: "Groq",
+      mistral: "Mistral",
+      ollama: "Ollama Cloud",
+    };
+    showToast(
+      `⚙️ Add your ${names[currentProvider]} API key in Settings first.`,
+    );
     openSettings();
     return;
   }
 
   const base64 = cropSelectionToBase64();
   if (!base64) {
-    showToast('❌ Could not capture the selection. Try again.');
+    showToast("Could not capture the selection. Try again.");
     return;
   }
 
-  setSolutionState('loading');
+  setSolutionState("loading");
   disableOutputBtns();
   state.isSolved = false;
-  el.solutionContent.innerHTML = '';
-  el.errorActions.classList.add('hidden');
+  el.solutionContent.innerHTML = "";
+  el.errorActions.classList.add("hidden");
 
-  const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama' };
+  const providerNames = {
+    gemini: "Gemini",
+    groq: "Groq",
+    mistral: "Mistral",
+    ollama: "Ollama",
+  };
 
   el.loadingSubText.textContent = `${providerNames[currentProvider]} is analyzing your selection…`;
   if (isMobile() && window.showPanel) {
-    window.showPanel('solution');
+    window.showPanel("solution");
   }
 
   try {
-    let response = '';
+    let response = "";
 
     // Create the container where chunks will go right away
-    setSolutionState('content');
-    el.solutionContent.innerHTML = '';
-    const thinkingIndicator = appendThinkingIndicator();
-    const aiMsg = document.createElement('div');
-    aiMsg.className = 'chat-msg-ai';
+    setSolutionState("content");
+    el.solutionContent.innerHTML = "";
+    let thinkingIndicator = appendThinkingIndicator();
+    const aiMsg = document.createElement("div");
+    aiMsg.className = "chat-msg-ai";
     el.solutionContent.appendChild(aiMsg);
 
     let firstChunkReceived = false;
@@ -1175,97 +1318,127 @@ async function solveSelection(resetGlobalCache = false) {
       scrollToBottom();
     };
 
-    if (currentProvider === 'gemini') {
+    if (currentProvider === "gemini") {
       state.chatHistory = [
         {
-          role: 'user',
-          parts: [
-            { inlineData: { mimeType: 'image/jpeg', data: base64 } }
-          ]
-        }
+          role: "user",
+          parts: [{ inlineData: { mimeType: "image/jpeg", data: base64 } }],
+        },
       ];
-      response = await callGeminiChat(state.chatHistory, state.apiKey, state.geminiModel, onChunk);
-    } else if (currentProvider === 'groq') {
-      response = await callGroqChat(base64, state.groqApiKey, state.groqModel, onChunk);
+      response = await callGeminiChat(
+        state.chatHistory,
+        state.apiKey,
+        state.geminiModel,
+        onChunk,
+      );
+    } else if (currentProvider === "groq") {
+      response = await callGroqChat(
+        base64,
+        state.groqApiKey,
+        state.groqModel,
+        onChunk,
+      );
       state.chatHistory = [
-        { role: 'user',      content: '[Image provided]' },
-        { role: 'assistant', content: response }
+        { role: "user", content: "[Image provided]" },
+        { role: "assistant", content: response },
       ];
-    } else if (currentProvider === 'mistral') {
-      response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel, onChunk);
+    } else if (currentProvider === "mistral") {
+      response = await callMistralChat(
+        base64,
+        state.mistralApiKey,
+        state.mistralModel,
+        onChunk,
+      );
       state.chatHistory = [
-        { role: 'user',      content: '[Image provided]' },
-        { role: 'assistant', content: response }
+        { role: "user", content: "[Image provided]" },
+        { role: "assistant", content: response },
       ];
-    } else if (currentProvider === 'ollama') {
-      response = await callOllamaChat(base64, state.ollamaApiKey, state.ollamaModel, onChunk);
+    } else if (currentProvider === "ollama") {
+      response = await callOllamaChat(
+        base64,
+        state.ollamaApiKey,
+        state.ollamaModel,
+        onChunk,
+      );
       state.chatHistory = [
-        { role: 'user',      content: '[Image provided]' },
-        { role: 'assistant', content: response }
+        { role: "user", content: "[Image provided]" },
+        { role: "assistant", content: response },
       ];
     }
 
     state.rawResponse = response;
     state.isSolved = true;
     state.answerCache[currentProvider] = {
-      rawResponse:  response,
-      chatHistory:  [...state.chatHistory],
+      rawResponse: response,
+      chatHistory: [...state.chatHistory],
       solutionHTML: el.solutionContent.innerHTML,
     };
-    
-    if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
+
+    if (thinkingIndicator && thinkingIndicator.parentNode)
+      thinkingIndicator.remove();
     enableOutputBtns();
-    setHint('Done! ' + (isMobile() ? 'Switch to Solution tab to see the answer.' : 'Drag a new selection or ask a follow-up question below.'));
+    setHint(
+      "Done! " +
+        (isMobile()
+          ? "Switch to Solution tab to see the answer."
+          : "Drag a new selection or ask a follow-up question below."),
+    );
 
     if (isMobile()) {
-      const tabSol = document.getElementById('tabSolution');
+      const tabSol = document.getElementById("tabSolution");
       if (tabSol) tabSol.click();
     }
   } catch (err) {
-    if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
-    setSolutionState('empty');
+    el.solutionContent
+      .querySelectorAll(".chat-msg-thinking")
+      .forEach((el) => el.remove());
+    setSolutionState("error");
     state.isSolved = false;
-    el.errorActions.classList.remove('hidden');
-    showToast('❌ ' + (err.message || 'AI request failed.'));
-    console.error('AI error:', err);
-    setHint('Something went wrong. Try again.');
+    el.errorActions.classList.remove("hidden");
+    el.solutionContent.insertAdjacentHTML(
+      "beforeend",
+      getErrorHtml("AI request failed", err.message || "Something went wrong."),
+    );
+    scrollToBottom();
+    console.error("AI error:", err);
+    setHint("Something went wrong. Try again.");
   }
 }
 
 // Handle follow-up chat
-el.chatSendBtn.addEventListener('click', sendFollowUp);
-el.chatInput.addEventListener('keydown', e => {
-  if (e.key === 'Enter') sendFollowUp();
+el.chatSendBtn.addEventListener("click", sendFollowUp);
+el.chatInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendFollowUp();
 });
 
 async function sendFollowUp() {
-    const currentProvider = state.provider;
+  const currentProvider = state.provider;
   const text = el.chatInput.value.trim();
   if (!text) return;
-  el.chatInput.value = '';
+  el.chatInput.value = "";
 
   appendUserMessage(text);
 
   const providerKey = {
-    gemini:  state.apiKey,
-    groq:    state.groqApiKey,
+    gemini: state.apiKey,
+    groq: state.groqApiKey,
     mistral: state.mistralApiKey,
-    ollama:  state.ollamaApiKey,
+    ollama: state.ollamaApiKey,
   }[currentProvider];
 
   disableOutputBtns();
 
   try {
     let response;
-    
+
     // Append thinking indicator
-    const thinkingIndicator = appendThinkingIndicator();
-    
+    let thinkingIndicator = appendThinkingIndicator();
+
     // Create the container for the AI message right away
-    const aiMsg = document.createElement('div');
-    aiMsg.className = 'chat-msg-ai';
+    const aiMsg = document.createElement("div");
+    aiMsg.className = "chat-msg-ai";
     el.solutionContent.appendChild(aiMsg);
-    
+
     let firstChunkReceived = false;
     const onChunk = (fullText, chunkText) => {
       if (!firstChunkReceived) {
@@ -1276,45 +1449,79 @@ async function sendFollowUp() {
       scrollToBottom();
     };
 
-    if (currentProvider === 'gemini') {
-      state.chatHistory.push({ role: 'user', parts: [{ text }] });
-      response = await callGeminiChat(state.chatHistory, providerKey, state.geminiModel, onChunk);
-      state.chatHistory.push({ role: 'model', parts: [{ text: response }] });
-    } else if (currentProvider === 'groq') {
-      state.chatHistory.push({ role: 'user', content: text });
-      response = await callGroqFollowUp(state.chatHistory, providerKey, state.groqModel, onChunk);
-      state.chatHistory.push({ role: 'assistant', content: response });
-    } else if (currentProvider === 'mistral') {
-      state.chatHistory.push({ role: 'user', content: text });
-      response = await callMistralFollowUp(state.chatHistory, providerKey, state.mistralModel, onChunk);
-      state.chatHistory.push({ role: 'assistant', content: response });
-    } else if (currentProvider === 'ollama') {
-      state.chatHistory.push({ role: 'user', content: text });
-      response = await callOllamaFollowUp(state.chatHistory, providerKey, state.ollamaModel, onChunk);
-      state.chatHistory.push({ role: 'assistant', content: response });
+    if (currentProvider === "gemini") {
+      state.chatHistory.push({ role: "user", parts: [{ text }] });
+      response = await callGeminiChat(
+        state.chatHistory,
+        providerKey,
+        state.geminiModel,
+        onChunk,
+      );
+      state.chatHistory.push({ role: "model", parts: [{ text: response }] });
+    } else if (currentProvider === "groq") {
+      state.chatHistory.push({ role: "user", content: text });
+      response = await callGroqFollowUp(
+        state.chatHistory,
+        providerKey,
+        state.groqModel,
+        onChunk,
+      );
+      state.chatHistory.push({ role: "assistant", content: response });
+    } else if (currentProvider === "mistral") {
+      state.chatHistory.push({ role: "user", content: text });
+      response = await callMistralFollowUp(
+        state.chatHistory,
+        providerKey,
+        state.mistralModel,
+        onChunk,
+      );
+      state.chatHistory.push({ role: "assistant", content: response });
+    } else if (currentProvider === "ollama") {
+      state.chatHistory.push({ role: "user", content: text });
+      response = await callOllamaFollowUp(
+        state.chatHistory,
+        providerKey,
+        state.ollamaModel,
+        onChunk,
+      );
+      state.chatHistory.push({ role: "assistant", content: response });
     }
 
-    state.rawResponse += '\n\n' + response;
-    
+    state.rawResponse += "\n\n" + response;
+
     // Update cache
     if (state.answerCache[currentProvider]) {
-      state.answerCache[currentProvider].rawResponse  = state.rawResponse;
-      state.answerCache[currentProvider].chatHistory  = [...state.chatHistory];
-      state.answerCache[currentProvider].solutionHTML = (currentProvider === state.provider) ? el.solutionContent.innerHTML : state.answerCache[currentProvider].solutionHTML;
+      state.answerCache[currentProvider].rawResponse = state.rawResponse;
+      state.answerCache[currentProvider].chatHistory = [...state.chatHistory];
+      state.answerCache[currentProvider].solutionHTML =
+        currentProvider === state.provider
+          ? el.solutionContent.innerHTML
+          : state.answerCache[currentProvider].solutionHTML;
     }
   } catch (err) {
-    if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
-    showToast('❌ Follow-up request failed.');
+    el.solutionContent
+      .querySelectorAll(".chat-msg-thinking")
+      .forEach((el) => el.remove());
+    el.solutionContent.insertAdjacentHTML(
+      "beforeend",
+      getErrorHtml(
+        "Follow-up request failed",
+        err.message || "Something went wrong.",
+      ),
+    );
+    scrollToBottom();
     console.error(err);
   } finally {
-    if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
+    el.solutionContent
+      .querySelectorAll(".chat-msg-thinking")
+      .forEach((el) => el.remove());
     enableOutputBtns();
   }
 }
 
 function appendThinkingIndicator() {
-  const div = document.createElement('div');
-  div.className = 'chat-msg-thinking';
+  const div = document.createElement("div");
+  div.className = "chat-msg-thinking";
   div.innerHTML = `
     <span>AI is thinking</span>
     <div class="loading-dots">
@@ -1324,6 +1531,25 @@ function appendThinkingIndicator() {
   el.solutionContent.appendChild(div);
   scrollToBottom();
   return div;
+}
+
+function getErrorHtml(title, message) {
+  return `
+    <div class="error-msg-box">
+      <div class="error-msg-header">
+        <img src="https://api.iconify.design/lucide:alert-circle.svg?color=%23ef4444" alt="Error" class="error-icon" />
+        <span class="error-title">${title}</span>
+      </div>
+      <div class="error-msg-body">
+        <p>${message}</p>
+      </div>
+    </div>
+  `;
+}
+
+function appendErrorBox(container, title, message) {
+  container.insertAdjacentHTML("beforeend", getErrorHtml(title, message));
+  scrollToBottom();
 }
 
 /**
@@ -1336,16 +1562,16 @@ async function callGeminiChat(contents, apiKey, model, onChunk) {
     system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents: contents,
     generationConfig: {
-      temperature:     0.15,
-      topP:            0.95,
+      temperature: 0.15,
+      topP: 0.95,
       maxOutputTokens: 8192,
-    }
+    },
   };
 
   const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify(body),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -1354,7 +1580,7 @@ async function callGeminiChat(contents, apiKey, model, onChunk) {
   }
 
   return processStream(res, onChunk, (chunk) => {
-    return chunk?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    return chunk?.candidates?.[0]?.content?.parts?.[0]?.text || "";
   });
 }
 
@@ -1362,49 +1588,61 @@ async function callGeminiChat(contents, apiKey, model, onChunk) {
  * Groq vision/text call — sends image as base64 in the content
  */
 async function callGroqChat(base64, apiKey, model, onChunk) {
-  const url = 'https://api.groq.com/openai/v1/chat/completions';
+  const url = "https://api.groq.com/openai/v1/chat/completions";
 
   // Determine if this model likely supports vision
-  const visionModels = ['meta-llama/llama-4-scout-17b-16e-instruct', 'meta-llama/llama-4-maverick-17b-128e-instruct'];
+  const visionModels = [
+    "meta-llama/llama-4-scout-17b-16e-instruct",
+    "meta-llama/llama-4-maverick-17b-128e-instruct",
+  ];
   const supportsVision = visionModels.includes(model);
 
   let messages;
   if (supportsVision) {
     messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: "system", content: SYSTEM_PROMPT },
       {
-        role: 'user',
+        role: "user",
         content: [
-          { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } }
-        ]
-      }
+          {
+            type: "image_url",
+            image_url: { url: `data:image/png;base64,${base64}` },
+          },
+        ],
+      },
     ];
   } else {
     messages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: "system", content: SYSTEM_PROMPT },
       {
-        role: 'user',
+        role: "user",
         content: [
-          { type: 'text', text: '[Image context provided as base64 but model has no vision]' },
-          { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}` } }
-        ]
-      }
+          {
+            type: "text",
+            text: "[Image context provided as base64 but model has no vision]",
+          },
+          {
+            type: "image_url",
+            image_url: { url: `data:image/png;base64,${base64}` },
+          },
+        ],
+      },
     ];
   }
 
   const body = {
     model,
     messages,
-    temperature:     0.25,
-    max_tokens:      8192,
-    stream:          true,
+    temperature: 0.25,
+    max_tokens: 8192,
+    stream: true,
   };
 
   const res = await fetch(url, {
-    method:  'POST',
+    method: "POST",
     headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
   });
@@ -1415,7 +1653,7 @@ async function callGroqChat(base64, apiKey, model, onChunk) {
   }
 
   return processStream(res, onChunk, (chunk) => {
-    return chunk?.choices?.[0]?.delta?.content || '';
+    return chunk?.choices?.[0]?.delta?.content || "";
   });
 }
 
@@ -1423,14 +1661,26 @@ async function callGroqChat(base64, apiKey, model, onChunk) {
  * Groq follow-up (text-only conversation)
  */
 async function callGroqFollowUp(messages, apiKey, model, onChunk) {
-  const url = 'https://api.groq.com/openai/v1/chat/completions';
-  const fullMessages = [{ role: 'system', content: SYSTEM_PROMPT }, ...messages];
-  const body = { model, messages: fullMessages, temperature: 0.15, max_tokens: 8192, stream: true };
+  const url = "https://api.groq.com/openai/v1/chat/completions";
+  const fullMessages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...messages,
+  ];
+  const body = {
+    model,
+    messages: fullMessages,
+    temperature: 0.15,
+    max_tokens: 8192,
+    stream: true,
+  };
 
   const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body:    JSON.stringify(body),
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -1438,7 +1688,7 @@ async function callGroqFollowUp(messages, apiKey, model, onChunk) {
     throw new Error(err?.error?.message || `Groq HTTP ${res.status}`);
   }
   return processStream(res, onChunk, (chunk) => {
-    return chunk?.choices?.[0]?.delta?.content || '';
+    return chunk?.choices?.[0]?.delta?.content || "";
   });
 }
 
@@ -1446,43 +1696,43 @@ async function callGroqFollowUp(messages, apiKey, model, onChunk) {
  * Mistral vision call — Pixtral models support vision
  */
 async function callMistralChat(base64, apiKey, model, onChunk) {
-  const url = 'https://api.mistral.ai/v1/chat/completions';
+  const url = "https://api.mistral.ai/v1/chat/completions";
 
   // Pixtral models support vision
-  const visionModels = ['pixtral-large-latest', 'pixtral-12b-2409'];
+  const visionModels = ["pixtral-large-latest", "pixtral-12b-2409"];
   const supportsVision = visionModels.includes(model);
 
   let content;
   if (supportsVision) {
     content = [
-      { type: 'text', text: SYSTEM_PROMPT },
-      { type: 'image_url', image_url: `data:image/png;base64,${base64}` }
+      { type: "text", text: SYSTEM_PROMPT },
+      { type: "image_url", image_url: `data:image/png;base64,${base64}` },
     ];
   } else {
     // For text-only Mistral models, we can still pass image_url format
     // (Mistral API handles it gracefully or ignores non-vision-capable parts)
     content = [
-      { type: 'text', text: SYSTEM_PROMPT },
-      { type: 'image_url', image_url: `data:image/png;base64,${base64}` }
+      { type: "text", text: SYSTEM_PROMPT },
+      { type: "image_url", image_url: `data:image/png;base64,${base64}` },
     ];
   }
 
   const body = {
     model,
     messages: [
-      { role: 'system', content: SYSTEM_PROMPT },
-      { role: 'user', content }
+      { role: "system", content: SYSTEM_PROMPT },
+      { role: "user", content },
     ],
     temperature: 0.15,
-    max_tokens:  8192,
-    stream:      true,
+    max_tokens: 8192,
+    stream: true,
   };
 
   const res = await fetch(url, {
-    method:  'POST',
+    method: "POST",
     headers: {
-      'Content-Type':  'application/json',
-      'Authorization': `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify(body),
   });
@@ -1493,7 +1743,7 @@ async function callMistralChat(base64, apiKey, model, onChunk) {
   }
 
   return processStream(res, onChunk, (chunk) => {
-    return chunk?.choices?.[0]?.delta?.content || '';
+    return chunk?.choices?.[0]?.delta?.content || "";
   });
 }
 
@@ -1501,26 +1751,32 @@ async function callMistralChat(base64, apiKey, model, onChunk) {
  * Mistral follow-up (text conversation)
  */
 async function callMistralFollowUp(messages, apiKey, model, onChunk) {
-  const url = 'https://api.mistral.ai/v1/chat/completions';
+  const url = "https://api.mistral.ai/v1/chat/completions";
   // Convert content arrays to strings for follow-up
-  const cleanMessages = messages.map(m => ({
+  const cleanMessages = messages.map((m) => ({
     role: m.role,
     content: Array.isArray(m.content)
-      ? m.content.filter(c => c.type === 'text').map(c => c.text).join(' ')
+      ? m.content
+          .filter((c) => c.type === "text")
+          .map((c) => c.text)
+          .join(" ")
       : m.content,
   }));
-  const body = { 
-    model, 
-    messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...cleanMessages], 
-    temperature: 0.15, 
+  const body = {
+    model,
+    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...cleanMessages],
+    temperature: 0.15,
     max_tokens: 8192,
-    stream: true 
+    stream: true,
   };
 
   const res = await fetch(url, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
-    body:    JSON.stringify(body),
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify(body),
   });
 
   if (!res.ok) {
@@ -1528,7 +1784,7 @@ async function callMistralFollowUp(messages, apiKey, model, onChunk) {
     throw new Error(err?.error?.message || `Mistral HTTP ${res.status}`);
   }
   return processStream(res, onChunk, (chunk) => {
-    return chunk?.choices?.[0]?.delta?.content || '';
+    return chunk?.choices?.[0]?.delta?.content || "";
   });
 }
 
@@ -1538,19 +1794,28 @@ async function callMistralFollowUp(messages, apiKey, model, onChunk) {
 async function callOllamaChat(base64, apiKey, model, onChunk) {
   const url = `/api/ollama`;
   const messages = [
-    { role: 'system', content: SYSTEM_PROMPT },
+    { role: "system", content: SYSTEM_PROMPT },
     {
-      role: 'user',
-      content: 'Please solve the question in this image.',
-      images: [base64]
-    }
+      role: "user",
+      content: "Please solve the question in this image.",
+      images: [base64],
+    },
   ];
 
-  const headers = { 'Content-Type': 'application/json' };
-  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
 
-  const body = { model, messages, stream: true, options: { temperature: 0.25 } };
-  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const body = {
+    model,
+    messages,
+    stream: true,
+    options: { temperature: 0.25 },
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
@@ -1558,31 +1823,46 @@ async function callOllamaChat(base64, apiKey, model, onChunk) {
   }
 
   return processStream(res, onChunk, (chunk) => {
-    return chunk?.message?.content || '';
+    return chunk?.message?.content || "";
   });
 }
 
 async function callOllamaFollowUp(messages, apiKey, model, onChunk) {
   const url = `/api/ollama`;
-  const cleanMessages = messages.map(m => ({
+  const cleanMessages = messages.map((m) => ({
     role: m.role,
     content: Array.isArray(m.content)
-      ? m.content.filter(c => c.type === 'text').map(c => c.text).join(' ')
+      ? m.content
+          .filter((c) => c.type === "text")
+          .map((c) => c.text)
+          .join(" ")
       : m.content,
   }));
-  const fullMessages = [{ role: 'system', content: SYSTEM_PROMPT }, ...cleanMessages];
-  const headers = { 'Content-Type': 'application/json' };
-  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-  
-  const body = { model, messages: fullMessages, stream: true, options: { temperature: 0.15 } };
-  const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
+  const fullMessages = [
+    { role: "system", content: SYSTEM_PROMPT },
+    ...cleanMessages,
+  ];
+  const headers = { "Content-Type": "application/json" };
+  if (apiKey) headers["Authorization"] = `Bearer ${apiKey}`;
+
+  const body = {
+    model,
+    messages: fullMessages,
+    stream: true,
+    options: { temperature: 0.15 },
+  };
+  const res = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(body),
+  });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error || `Ollama Cloud HTTP ${res.status}`);
   }
   return processStream(res, onChunk, (chunk) => {
-    return chunk?.message?.content || '';
+    return chunk?.message?.content || "";
   });
 }
 
@@ -1595,19 +1875,23 @@ function renderMarkdown(raw, container) {
 
   // Auto-close unclosed blocks to prevent formatting glitches during streaming
   const numBackticks = (processed.match(/```/g) || []).length;
-  if (numBackticks % 2 !== 0) processed += '\n```';
+  if (numBackticks % 2 !== 0) processed += "\n```";
 
   const numDoubleDollar = (processed.match(/\$\$/g) || []).length;
-  if (numDoubleDollar % 2 !== 0) processed += '\n$$';
+  if (numDoubleDollar % 2 !== 0) processed += "\n$$";
 
   const numOpenBracket = (processed.match(/\\\[/g) || []).length;
   const numCloseBracket = (processed.match(/\\\]/g) || []).length;
-  if (numOpenBracket > numCloseBracket) processed += '\n\\]';
+  if (numOpenBracket > numCloseBracket) processed += "\n\\]";
 
   // Convert ```math code blocks to standard $$ math blocks
-  processed = processed.replace(/```math\n?([\s\S]*?)```/g, (match, p1) => `$$${p1}$$`);
+  processed = processed.replace(
+    /```math\n?([\s\S]*?)```/g,
+    (match, p1) => `$$${p1}$$`,
+  );
 
-  const escapeHTML = str => str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const escapeHTML = (str) =>
+    str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
   // Protect $$ ... $$ from being mangled by marked's breaks:true
   processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
@@ -1622,13 +1906,13 @@ function renderMarkdown(raw, container) {
   marked.setOptions({ breaks: true, gfm: true });
   container.innerHTML = marked.parse(processed);
 
-  if (typeof renderMathInElement !== 'undefined') {
+  if (typeof renderMathInElement !== "undefined") {
     renderMathInElement(container, {
       delimiters: [
-        { left: '$$', right: '$$', display: true  },
-        { left: '$',  right: '$',  display: false },
-        { left: '\\[', right: '\\]', display: true  },
-        { left: '\\(', right: '\\)', display: false },
+        { left: "$$", right: "$$", display: true },
+        { left: "$", right: "$", display: false },
+        { left: "\\[", right: "\\]", display: true },
+        { left: "\\(", right: "\\)", display: false },
       ],
       throwOnError: false,
     });
@@ -1636,11 +1920,11 @@ function renderMarkdown(raw, container) {
 }
 
 function renderSolution(raw) {
-  setSolutionState('content');
-  el.solutionContent.innerHTML = '';
-  
-  const aiMsg = document.createElement('div');
-  aiMsg.className = 'chat-msg-ai';
+  setSolutionState("content");
+  el.solutionContent.innerHTML = "";
+
+  const aiMsg = document.createElement("div");
+  aiMsg.className = "chat-msg-ai";
   el.solutionContent.appendChild(aiMsg);
   renderMarkdown(raw, aiMsg);
 
@@ -1648,23 +1932,23 @@ function renderSolution(raw) {
 }
 
 function appendUserMessage(text) {
-  const userMsg = document.createElement('div');
-  userMsg.className = 'chat-msg-user';
+  const userMsg = document.createElement("div");
+  userMsg.className = "chat-msg-user";
   userMsg.textContent = text;
   el.solutionContent.appendChild(userMsg);
   scrollToBottom();
 }
 
 function appendAIMessage(raw) {
-  const aiMsg = document.createElement('div');
-  aiMsg.className = 'chat-msg-ai';
+  const aiMsg = document.createElement("div");
+  aiMsg.className = "chat-msg-ai";
   el.solutionContent.appendChild(aiMsg);
   renderMarkdown(raw, aiMsg);
 }
 
-
 function scrollToBottom() {
-  el.solutionContent.parentElement.scrollTop = el.solutionContent.parentElement.scrollHeight;
+  el.solutionContent.parentElement.scrollTop =
+    el.solutionContent.parentElement.scrollHeight;
 }
 
 /**
@@ -1672,29 +1956,29 @@ function scrollToBottom() {
  */
 async function processStream(response, onChunk, parser) {
   const reader = response.body.getReader();
-  const decoder = new TextDecoder('utf-8');
+  const decoder = new TextDecoder("utf-8");
   let done = false;
-  let fullText = '';
-  let buffer = '';
+  let fullText = "";
+  let buffer = "";
 
   while (!done) {
     const { value, done: doneReading } = await reader.read();
     done = doneReading;
     if (value) {
       buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || ""; // Keep the last incomplete line in buffer
 
       for (let line of lines) {
         line = line.trim();
         if (!line) continue;
 
         // Strip "data: " prefix for SSE
-        if (line.startsWith('data: ')) {
+        if (line.startsWith("data: ")) {
           line = line.substring(6);
         }
 
-        if (line === '[DONE]') continue; // OpenAI end token
+        if (line === "[DONE]") continue; // OpenAI end token
 
         try {
           const parsed = JSON.parse(line);
@@ -1716,37 +2000,48 @@ async function processStream(response, onChunk, parser) {
    OUTPUT BUTTONS
    ========================================================= */
 
-el.copyBtn.addEventListener('click', () => {
-  copyText(el.solutionContent.innerText || '');
+el.copyBtn.addEventListener("click", () => {
+  copyText(el.solutionContent.innerText || "");
 });
 
-el.copyLatexBtn.addEventListener('click', () => {
+el.copyLatexBtn.addEventListener("click", () => {
   if (!state.rawResponse) return;
   copyText(state.rawResponse);
-  showToast('✓ LaTeX / Markdown source copied!');
+  showToast("✓ LaTeX / Markdown source copied!");
 });
 
-el.downloadBtn.addEventListener('click', async () => {
+el.downloadBtn.addEventListener("click", async () => {
   if (!state.rawResponse) return;
 
   try {
-    showToast('⏳ Generating professional report…');
+    showToast("⏳ Generating professional report…");
 
     // 1. Prepare data
     const now = new Date();
-    const dateStr = now.toLocaleDateString('en-US', { 
-      year: 'numeric', month: 'long', day: 'numeric',
-      hour: '2-digit', minute: '2-digit'
+    const dateStr = now.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
     });
-    
-    const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral' };
-    const modelName = state.provider === 'gemini' ? state.geminiModel : 
-                     (state.provider === 'groq' ? state.groqModel : state.mistralModel);
+
+    const providerNames = {
+      gemini: "Gemini",
+      groq: "Groq",
+      mistral: "Mistral",
+    };
+    const modelName =
+      state.provider === "gemini"
+        ? state.geminiModel
+        : state.provider === "groq"
+          ? state.groqModel
+          : state.mistralModel;
 
     // 2. Populate template
     el.pdfDate.textContent = dateStr;
     el.pdfModel.textContent = `Model: ${providerNames[state.provider]} ${modelName}`;
-    
+
     // Get high-quality crop
     const cropBase64 = cropSelectionToBase64();
     if (cropBase64) {
@@ -1755,38 +2050,38 @@ el.downloadBtn.addEventListener('click', async () => {
 
     // Clone solution content and clean up (remove animations, etc.)
     el.pdfSolutionContent.innerHTML = el.solutionContent.innerHTML;
-    
+
     // Ensure math is rendered (it should be as we clone innerHTML, but sometimes KaTeX needs help)
     // Wait a bit for the image to load in the hidden template
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 100));
 
     // 3. Generate PDF
     const opt = {
-      margin:       [10, 10],
-      filename:     `MathAI-Solution-${now.getTime()}.pdf`,
-      image:        { type: 'jpeg', quality: 0.98 },
-      html2canvas:  { 
-        scale: 2, 
-        useCORS: true, 
+      margin: [10, 10],
+      filename: `MathAI-Solution-${now.getTime()}.pdf`,
+      image: { type: "jpeg", quality: 0.98 },
+      html2canvas: {
+        scale: 2,
+        useCORS: true,
         letterRendering: true,
-        backgroundColor: '#ffffff'
+        backgroundColor: "#ffffff",
       },
-      jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' },
-      pagebreak:    { mode: ['avoid-all', 'css', 'legacy'] }
+      jsPDF: { unit: "mm", format: "a4", orientation: "portrait" },
+      pagebreak: { mode: ["avoid-all", "css", "legacy"] },
     };
 
     // Temporarily show the template (but off-screen or zero height) for capturing
     // html2pdf works best if the element is in the DOM and visible (but can be hidden via clip/position)
-    el.pdfTemplate.classList.remove('hidden');
-    
+    el.pdfTemplate.classList.remove("hidden");
+
     await html2pdf().set(opt).from(el.pdfTemplate).save();
 
-    el.pdfTemplate.classList.add('hidden');
-    showToast('✓ Solution report saved!');
+    el.pdfTemplate.classList.add("hidden");
+    showToast("✓ Solution report saved!");
   } catch (err) {
-    showToast('❌ PDF generation failed.');
-    console.error('PDF Error:', err);
-    el.pdfTemplate.classList.add('hidden');
+    showToast("PDF generation failed.");
+    console.error("PDF Error:", err);
+    el.pdfTemplate.classList.add("hidden");
   }
 });
 
@@ -1795,31 +2090,37 @@ el.downloadBtn.addEventListener('click', async () => {
    ========================================================= */
 
 (function initPanelResize() {
-  const divider = $('panelDivider');
-  const left    = $('leftPanel');
-  const layout  = document.querySelector('.main-layout');
-  let drag = false, startX = 0, startW = 0;
+  const divider = $("panelDivider");
+  const left = $("leftPanel");
+  const layout = document.querySelector(".main-layout");
+  let drag = false,
+    startX = 0,
+    startW = 0;
 
-  divider.addEventListener('mousedown', e => {
+  divider.addEventListener("mousedown", (e) => {
     if (window.innerWidth <= 768) return;
-    drag   = true; startX = e.clientX;
+    drag = true;
+    startX = e.clientX;
     startW = left.getBoundingClientRect().width;
-    divider.classList.add('dragging');
-    document.body.style.cssText += ';cursor:col-resize;user-select:none';
+    divider.classList.add("dragging");
+    document.body.style.cssText += ";cursor:col-resize;user-select:none";
   });
-  document.addEventListener('mousemove', e => {
+  document.addEventListener("mousemove", (e) => {
     if (!drag) return;
     const total = layout.getBoundingClientRect().width;
-    const nw    = Math.min(Math.max(startW + e.clientX - startX, total * 0.2), total * 0.8);
-    left.style.flex  = `0 0 ${(nw/total*100).toFixed(2)}%`;
-    left.style.width = `${(nw/total*100).toFixed(2)}%`;
+    const nw = Math.min(
+      Math.max(startW + e.clientX - startX, total * 0.2),
+      total * 0.8,
+    );
+    left.style.flex = `0 0 ${((nw / total) * 100).toFixed(2)}%`;
+    left.style.width = `${((nw / total) * 100).toFixed(2)}%`;
   });
-  document.addEventListener('mouseup', () => {
+  document.addEventListener("mouseup", () => {
     if (!drag) return;
     drag = false;
-    divider.classList.remove('dragging');
-    document.body.style.cursor    = '';
-    document.body.style.userSelect = '';
+    divider.classList.remove("dragging");
+    document.body.style.cursor = "";
+    document.body.style.userSelect = "";
   });
 })();
 
@@ -1827,15 +2128,16 @@ el.downloadBtn.addEventListener('click', async () => {
    KEYBOARD SHORTCUTS
    ========================================================= */
 
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape') {
-    if (!el.settingsOv.classList.contains('hidden')) closeSettings();
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") {
+    if (!el.settingsOv.classList.contains("hidden")) closeSettings();
     else clearSelection();
   }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-    e.preventDefault(); openSettings();
+  if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+    e.preventDefault();
+    openSettings();
   }
-  if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
     if (sel.active) solveSelection(true);
   }
 });
@@ -1845,59 +2147,59 @@ document.addEventListener('keydown', e => {
    ========================================================= */
 
 (function initMobile() {
-  const tabViewer       = $('tabViewer');
-  const tabSelect       = $('tabSelectRegion');
-  const tabSolution     = $('tabSolution');
-  const mobileSolveBtn  = $('mobileSolveBtn');
-  const touchBanner     = $('touchSelectBanner');
-  const touchCancelBtn  = $('touchCancelBtn');
-  const leftPanel       = $('leftPanel');
-  const rightPanel      = $('rightPanel');
+  const tabViewer = $("tabViewer");
+  const tabSelect = $("tabSelectRegion");
+  const tabSolution = $("tabSolution");
+  const mobileSolveBtn = $("mobileSolveBtn");
+  const touchBanner = $("touchSelectBanner");
+  const touchCancelBtn = $("touchCancelBtn");
+  const leftPanel = $("leftPanel");
+  const rightPanel = $("rightPanel");
 
   if (!tabViewer) return; // Safety in case elements are missing
 
   /* ── Panel switching ─────────────────────────────────── */
-  let activeTab = 'viewer';
+  let activeTab = "viewer";
 
-  window.showPanel = function(tab) {
+  window.showPanel = function (tab) {
     activeTab = tab;
 
     // Update tab active states
-    tabViewer.classList.toggle('active',   tab === 'viewer');
-    tabSolution.classList.toggle('active', tab === 'solution');
-    if (tabSelect) tabSelect.classList.toggle('active', tab === 'select');
+    tabViewer.classList.toggle("active", tab === "viewer");
+    tabSolution.classList.toggle("active", tab === "solution");
+    if (tabSelect) tabSelect.classList.toggle("active", tab === "select");
 
     // Show/hide panels
-    if (tab === 'solution') {
-      leftPanel.classList.add('panel-hidden');
-      rightPanel.classList.remove('panel-hidden');
-      mobileSolveBtn.classList.add('hidden');
+    if (tab === "solution") {
+      leftPanel.classList.add("panel-hidden");
+      rightPanel.classList.remove("panel-hidden");
+      mobileSolveBtn.classList.add("hidden");
     } else {
       // viewer or select mode
-      rightPanel.classList.add('panel-hidden');
-      leftPanel.classList.remove('panel-hidden');
+      rightPanel.classList.add("panel-hidden");
+      leftPanel.classList.remove("panel-hidden");
     }
 
     // Show FAB if there's an active selection and we're on viewer/select tab
     updateFabVisibility();
-  }
+  };
 
   function updateFabVisibility() {
     if (!isMobile()) return;
-    const onViewerTab = (activeTab === 'viewer' || activeTab === 'select');
+    const onViewerTab = activeTab === "viewer" || activeTab === "select";
     if (onViewerTab && sel.active) {
-      mobileSolveBtn.classList.remove('hidden');
+      mobileSolveBtn.classList.remove("hidden");
     } else {
-      mobileSolveBtn.classList.add('hidden');
+      mobileSolveBtn.classList.add("hidden");
     }
   }
 
-  tabViewer.addEventListener('click', () => showPanel('viewer'));
-  tabSolution.addEventListener('click', () => showPanel('solution'));
+  tabViewer.addEventListener("click", () => showPanel("viewer"));
+  tabSolution.addEventListener("click", () => showPanel("solution"));
 
   // Ensure start on viewer tab on mobile
   if (isMobile()) {
-    showPanel('viewer');
+    showPanel("viewer");
   }
 
   /* ── Touch Select Mode ───────────────────────────────── */
@@ -1906,25 +2208,25 @@ document.addEventListener('keydown', e => {
   function activateTouchSelectMode() {
     if (touchSelectActive) return;
     touchSelectActive = true;
-    tabSelect.classList.add('active');
+    tabSelect.classList.add("active");
 
     // Place initial selection box in the center (50% of overlay)
     const ov = el.selOverlay.getBoundingClientRect();
-    const W  = ov.width;
-    const H  = ov.height;
+    const W = ov.width;
+    const H = ov.height;
 
     // Default box: centered, 60% wide, 30% tall
-    sel.w = Math.round(W * 0.60);
-    sel.h = Math.round(H * 0.30);
+    sel.w = Math.round(W * 0.6);
+    sel.h = Math.round(H * 0.3);
     sel.x = Math.round((W - sel.w) / 2);
     sel.y = Math.round((H - sel.h) / 2);
     sel.active = true;
 
-    el.selBox.classList.remove('hidden');
+    el.selBox.classList.remove("hidden");
     renderSelection();
-    setHint('Drag the blue box to cover your question, then tap Solve');
+    setHint("Drag the blue box to cover your question, then tap Solve");
     if (touchBanner) {
-      touchBanner.style.display = 'flex';
+      touchBanner.style.display = "flex";
     }
 
     updateFabVisibility();
@@ -1932,22 +2234,22 @@ document.addEventListener('keydown', e => {
 
   function deactivateTouchSelectMode() {
     touchSelectActive = false;
-    tabSelect.classList.remove('active');
-    if (touchBanner) touchBanner.style.display = 'none';
+    tabSelect.classList.remove("active");
+    if (touchBanner) touchBanner.style.display = "none";
     setHint('Tap "Select" to choose a question region');
     clearSelection();
     updateFabVisibility();
   }
 
   if (touchCancelBtn) {
-    touchCancelBtn.addEventListener('click', () => {
+    touchCancelBtn.addEventListener("click", () => {
       deactivateTouchSelectMode();
-      showPanel('viewer');
+      showPanel("viewer");
     });
   }
 
   /* ── Mobile FAB → Solve ──────────────────────────────── */
-  mobileSolveBtn.addEventListener('click', () => {
+  mobileSolveBtn.addEventListener("click", () => {
     if (!sel.active) {
       activateTouchSelectMode();
       return;
@@ -1962,71 +2264,78 @@ document.addEventListener('keydown', e => {
 
   let ptActive = false;
 
-  el.selOverlay.addEventListener('pointerdown', e => {
-    if (!isMobile()) return;
-    if (e.pointerType === 'mouse') return; // mouse handled separately
-    if (!state.file) return;
+  el.selOverlay.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!isMobile()) return;
+      if (e.pointerType === "mouse") return; // mouse handled separately
+      if (!state.file) return;
 
-    e.preventDefault();
-    el.selOverlay.setPointerCapture(e.pointerId);
+      e.preventDefault();
+      el.selOverlay.setPointerCapture(e.pointerId);
 
-    if (state.isSolved) {
-      state.isSolved = false;
-      setSolutionState('empty');
-    }
+      if (state.isSolved) {
+        state.isSolved = false;
+        setSolutionState("empty");
+      }
 
+      const rect = el.selOverlay.getBoundingClientRect();
+      ptActive = true;
+      sel.mode = "draw";
+      sel.startX = e.clientX - rect.left;
+      sel.startY = e.clientY - rect.top;
+      sel.x = sel.startX;
+      sel.y = sel.startY;
+      sel.w = 0;
+      sel.h = 0;
+      sel.active = false;
+      el.selBox.classList.add("hidden");
+      el.selBox.classList.add("dragging");
+      hideMasks();
+    },
+    { passive: false },
+  );
 
-    const rect  = el.selOverlay.getBoundingClientRect();
-    ptActive    = true;
-    sel.mode    = 'draw';
-    sel.startX  = e.clientX - rect.left;
-    sel.startY  = e.clientY - rect.top;
-    sel.x = sel.startX;
-    sel.y = sel.startY;
-    sel.w = 0;
-    sel.h = 0;
-    sel.active = false;
-    el.selBox.classList.add('hidden');
-    el.selBox.classList.add('dragging');
-    hideMasks();
-  }, { passive: false });
-
-  el.selOverlay.addEventListener('pointermove', e => {
-    if (!ptActive || !isMobile()) return;
-    if (e.pointerType === 'mouse') return;
-    e.preventDefault();
-    const rect = el.selOverlay.getBoundingClientRect();
-    if (sel.mode === 'draw') {
-      const mx = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
-      const my = Math.min(Math.max(e.clientY - rect.top,  0), rect.height);
-      sel.x = Math.min(mx, sel.startX);
-      sel.y = Math.min(my, sel.startY);
-      sel.w = Math.abs(mx - sel.startX);
-      sel.h = Math.abs(my - sel.startY);
-      if (sel.w > 5 || sel.h > 5) {
-        sel.active = true;
-        el.selBox.classList.remove('hidden');
+  el.selOverlay.addEventListener(
+    "pointermove",
+    (e) => {
+      if (!ptActive || !isMobile()) return;
+      if (e.pointerType === "mouse") return;
+      e.preventDefault();
+      const rect = el.selOverlay.getBoundingClientRect();
+      if (sel.mode === "draw") {
+        const mx = Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+        const my = Math.min(Math.max(e.clientY - rect.top, 0), rect.height);
+        sel.x = Math.min(mx, sel.startX);
+        sel.y = Math.min(my, sel.startY);
+        sel.w = Math.abs(mx - sel.startX);
+        sel.h = Math.abs(my - sel.startY);
+        if (sel.w > 5 || sel.h > 5) {
+          sel.active = true;
+          el.selBox.classList.remove("hidden");
+          renderSelection();
+        }
+      } else if (sel.mode === "move") {
+        const dx = e.clientX - sel.startX;
+        const dy = e.clientY - sel.startY;
+        sel.x = Math.max(0, Math.min(sel.origX + dx, rect.width - sel.w));
+        sel.y = Math.max(0, Math.min(sel.origY + dy, rect.height - sel.h));
+        renderSelection();
+      } else if (sel.mode === "resize") {
+        const dx = e.clientX - sel.startX;
+        const dy = e.clientY - sel.startY;
+        resizeFromHandle(sel.handle, dx, dy, rect);
         renderSelection();
       }
-    } else if (sel.mode === 'move') {
-      const dx = e.clientX - sel.startX;
-      const dy = e.clientY - sel.startY;
-      sel.x = Math.max(0, Math.min(sel.origX + dx, rect.width  - sel.w));
-      sel.y = Math.max(0, Math.min(sel.origY + dy, rect.height - sel.h));
-      renderSelection();
-    } else if (sel.mode === 'resize') {
-      const dx = e.clientX - sel.startX;
-      const dy = e.clientY - sel.startY;
-      resizeFromHandle(sel.handle, dx, dy, rect);
-      renderSelection();
-    }
-  }, { passive: false });
+    },
+    { passive: false },
+  );
 
-  el.selOverlay.addEventListener('pointerup', e => {
+  el.selOverlay.addEventListener("pointerup", (e) => {
     if (!ptActive || !isMobile()) return;
-    if (e.pointerType === 'mouse') return;
+    if (e.pointerType === "mouse") return;
     ptActive = false;
-    if (sel.mode === 'draw') {
+    if (sel.mode === "draw") {
       if (sel.w < MIN_SEL || sel.h < MIN_SEL) {
         clearSelection();
       } else {
@@ -2035,81 +2344,102 @@ document.addEventListener('keydown', e => {
         setHint('Good! Tap "Solve ⚡" to get the solution');
       }
     }
-    sel.mode   = null;
+    sel.mode = null;
     sel.handle = null;
-    el.selBox.classList.remove('dragging');
+    el.selBox.classList.remove("dragging");
     updateFabVisibility();
   });
 
   // Touch move/resize on sel-box (for mobile selecting existing box)
-  el.selBox.addEventListener('pointerdown', e => {
-    if (!isMobile()) return;
-    if (e.pointerType === 'mouse') return;
-    if (e.target.classList.contains('sel-handle')) return;
-    e.stopPropagation();
-    e.preventDefault();
-    el.selBox.setPointerCapture(e.pointerId);
-    el.selBox.classList.add('dragging');
-    if (navigator.vibrate) navigator.vibrate(10);
-    sel.mode    = 'move';
-    sel.startX  = e.clientX;
-    sel.startY  = e.clientY;
-    sel.origX   = sel.x;
-    sel.origY   = sel.y;
-  }, { passive: false });
+  el.selBox.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!isMobile()) return;
+      if (e.pointerType === "mouse") return;
+      if (e.target.classList.contains("sel-handle")) return;
+      e.stopPropagation();
+      e.preventDefault();
+      el.selBox.setPointerCapture(e.pointerId);
+      el.selBox.classList.add("dragging");
+      if (navigator.vibrate) navigator.vibrate(10);
+      sel.mode = "move";
+      sel.startX = e.clientX;
+      sel.startY = e.clientY;
+      sel.origX = sel.x;
+      sel.origY = sel.y;
+    },
+    { passive: false },
+  );
 
-  el.selBox.addEventListener('pointermove', e => {
-    if (!isMobile() || sel.mode !== 'move') return;
-    if (e.pointerType === 'mouse') return;
-    e.preventDefault();
-    const rect = el.selOverlay.getBoundingClientRect();
-    const dx   = e.clientX - sel.startX;
-    const dy   = e.clientY - sel.startY;
-    sel.x = Math.max(0, Math.min(sel.origX + dx, rect.width  - sel.w));
-    sel.y = Math.max(0, Math.min(sel.origY + dy, rect.height - sel.h));
-    renderSelection();
-  }, { passive: false });
+  el.selBox.addEventListener(
+    "pointermove",
+    (e) => {
+      if (!isMobile() || sel.mode !== "move") return;
+      if (e.pointerType === "mouse") return;
+      e.preventDefault();
+      const rect = el.selOverlay.getBoundingClientRect();
+      const dx = e.clientX - sel.startX;
+      const dy = e.clientY - sel.startY;
+      sel.x = Math.max(0, Math.min(sel.origX + dx, rect.width - sel.w));
+      sel.y = Math.max(0, Math.min(sel.origY + dy, rect.height - sel.h));
+      renderSelection();
+    },
+    { passive: false },
+  );
 
-  el.selBox.addEventListener('pointerup', e => {
+  el.selBox.addEventListener("pointerup", (e) => {
     if (!isMobile()) return;
-    if (e.pointerType === 'mouse') return;
-    el.selBox.classList.remove('dragging');
+    if (e.pointerType === "mouse") return;
+    el.selBox.classList.remove("dragging");
     sel.mode = null;
   });
 
   // Touch resize handles
-  el.selBox.querySelectorAll('.sel-handle').forEach(h => {
-    h.addEventListener('pointerdown', e => {
-      if (!isMobile()) return;
-      if (e.pointerType === 'mouse') return;
-      e.stopPropagation();
-      e.preventDefault();
-      h.setPointerCapture(e.pointerId);
-      el.selBox.classList.add('dragging');
-      if (navigator.vibrate) navigator.vibrate(10);
-      sel.mode   = 'resize';
-      sel.handle = h.dataset.dir;
-      sel.startX = e.clientX;
-      sel.startY = e.clientY;
-      sel.origX  = sel.x;
-      sel.origY  = sel.y;
-      sel.origW  = sel.w;
-      sel.origH  = sel.h;
-    }, { passive: false });
+  el.selBox.querySelectorAll(".sel-handle").forEach((h) => {
+    h.addEventListener(
+      "pointerdown",
+      (e) => {
+        if (!isMobile()) return;
+        if (e.pointerType === "mouse") return;
+        e.stopPropagation();
+        e.preventDefault();
+        h.setPointerCapture(e.pointerId);
+        el.selBox.classList.add("dragging");
+        if (navigator.vibrate) navigator.vibrate(10);
+        sel.mode = "resize";
+        sel.handle = h.dataset.dir;
+        sel.startX = e.clientX;
+        sel.startY = e.clientY;
+        sel.origX = sel.x;
+        sel.origY = sel.y;
+        sel.origW = sel.w;
+        sel.origH = sel.h;
+      },
+      { passive: false },
+    );
 
-    h.addEventListener('pointermove', e => {
-      if (!isMobile() || sel.mode !== 'resize') return;
-      if (e.pointerType === 'mouse') return;
-      e.preventDefault();
-      const rect = el.selOverlay.getBoundingClientRect();
-      resizeFromHandle(sel.handle, e.clientX - sel.startX, e.clientY - sel.startY, rect);
-      renderSelection();
-    }, { passive: false });
+    h.addEventListener(
+      "pointermove",
+      (e) => {
+        if (!isMobile() || sel.mode !== "resize") return;
+        if (e.pointerType === "mouse") return;
+        e.preventDefault();
+        const rect = el.selOverlay.getBoundingClientRect();
+        resizeFromHandle(
+          sel.handle,
+          e.clientX - sel.startX,
+          e.clientY - sel.startY,
+          rect,
+        );
+        renderSelection();
+      },
+      { passive: false },
+    );
 
-    h.addEventListener('pointerup', e => {
+    h.addEventListener("pointerup", (e) => {
       if (!isMobile()) return;
-      if (e.pointerType === 'mouse') return;
-      el.selBox.classList.remove('dragging');
+      if (e.pointerType === "mouse") return;
+      el.selBox.classList.remove("dragging");
       sel.mode = null;
       updateFabVisibility();
     });
@@ -2125,11 +2455,11 @@ document.addEventListener('keydown', e => {
   const _origSolve = window.solveSelection;
 
   /* ── Window resize: reset panel visibility on desktop ── */
-  window.addEventListener('resize', () => {
+  window.addEventListener("resize", () => {
     if (!isMobile()) {
-      leftPanel.classList.remove('panel-hidden');
-      rightPanel.classList.remove('panel-hidden');
-      mobileSolveBtn.classList.add('hidden');
+      leftPanel.classList.remove("panel-hidden");
+      rightPanel.classList.remove("panel-hidden");
+      mobileSolveBtn.classList.add("hidden");
     } else {
       // Re-apply current tab
       showPanel(activeTab);
@@ -2139,17 +2469,16 @@ document.addEventListener('keydown', e => {
   /* ── Update FAB whenever selection changes ───────────── */
   // Hook into existing clearSelection
   const _origClear = clearSelection;
-  window.clearSelection = function() {
+  window.clearSelection = function () {
     _origClear();
     updateFabVisibility();
     if (isMobile() && touchSelectActive) {
       touchSelectActive = false;
-      if (touchBanner) touchBanner.style.display = 'none';
-      tabSelect.classList.remove('active');
-      tabViewer.classList.add('active');
+      if (touchBanner) touchBanner.style.display = "none";
+      tabSelect.classList.remove("active");
+      tabViewer.classList.add("active");
     }
   };
-
 })();
 
 /* =========================================================
@@ -2157,20 +2486,23 @@ document.addEventListener('keydown', e => {
    ========================================================= */
 
 function waitForKaTeX(cb, n = 0) {
-  if (typeof renderMathInElement !== 'undefined') cb();
+  if (typeof renderMathInElement !== "undefined") cb();
   else if (n < 40) setTimeout(() => waitForKaTeX(cb, n + 1), 250);
 }
 
 function init() {
   initTheme();
   loadSettings();
-  setSolutionState('empty');
+  setSolutionState("empty");
   disableOutputBtns();
-  console.info('%cMathAI ready.\nCtrl+K = Settings | Ctrl+Enter = Solve | Esc = Clear', 'font-weight:bold');
+  console.info(
+    "%cMathAI ready.\nCtrl+K = Settings | Ctrl+Enter = Solve | Esc = Clear",
+    "font-weight:bold",
+  );
 }
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => waitForKaTeX(init));
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", () => waitForKaTeX(init));
 } else {
   waitForKaTeX(init);
 }

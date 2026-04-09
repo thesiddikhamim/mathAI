@@ -25,23 +25,27 @@ const el = {
   // Settings
   settingsOv: $("settingsOverlay"),
   settingsClose: $("settingsClose"),
+  tabApiKeys: $("tabApiKeys"),
+  tabModels: $("tabModels"),
+  apiKeysView: $("apiKeysView"),
+  modelsView: $("modelsView"),
+
   apiKeyInput: $("apiKeyInput"),
   toggleKeyVis: $("toggleKeyVisibility"),
   eyeOpen: document.querySelector(".eye-open"),
   eyeClosed: document.querySelector(".eye-closed"),
-  geminiModelSelect: $("geminiModelSelect"),
+
   // Groq
   groqApiKeyInput: $("groqApiKeyInput"),
   toggleGroqKeyVis: $("toggleGroqKeyVis"),
-  groqModelSelect: $("groqModelSelect"),
+  
   // Mistral
   mistralApiKeyInput: $("mistralApiKeyInput"),
   toggleMistralKeyVis: $("toggleMistralKeyVis"),
-  mistralModelSelect: $("mistralModelSelect"),
+  
   // Ollama
   ollamaApiKeyInput: $("ollamaApiKeyInput"),
   toggleOllamaKeyVis: $("toggleOllamaKeyVis"),
-  ollamaModelSelect: $("ollamaModelSelect"),
   // Settings actions
   saveKey: $("saveApiKey"),
   clearKey: $("clearApiKey"),
@@ -93,10 +97,6 @@ const el = {
 
   // Carousel Switcher
   modelCarousel: $("modelCarousel"),
-  labelGemini: $("labelGemini"),
-  labelMistral: $("labelMistral"),
-  labelGroq: $("labelGroq"),
-  labelOllama: $("labelOllama"),
 
   // Chat
   chatContainer: $("chatContainer"),
@@ -122,20 +122,30 @@ const state = {
   curPage: 1,
   totalPages: 0,
   rawResponse: "",
-  // Per-provider credentials & models
+  // Per-provider credentials
   apiKey: "",
   groqApiKey: "",
   mistralApiKey: "",
   ollamaApiKey: "",
-  geminiModel: "gemini-2.5-pro",
-  groqModel: "meta-llama/llama-4-scout-17b-16e-instruct",
-  mistralModel: "mistral-large-latest",
-  ollamaModel: "gemma4:31b-cloud",
-  // Active provider
-  provider: "gemini", // 'gemini' | 'groq' | 'mistral'
+  // Enabled providers
+  enabledProviders: {
+    gemini: true,
+    ollama: true,
+    mistral: true,
+    groq: true
+  },
+  // Selected models per provider
+  selectedModels: {
+    gemini: ["gemini-3.1-pro-preview"],
+    ollama: ["qwen3.5:cloud"],
+    mistral: ["mistral-large-latest"],
+    groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
+  },
+  // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
+  activeTabId: "gemini:gemini-3.1-pro-preview",
   chatHistory: [],
   isSolved: false,
-  // Per-provider answer cache: { provider: { rawResponse, chatHistory, solutionHTML } }
+  // Cache keyed by tab ID
   answerCache: {},
 };
 
@@ -159,6 +169,36 @@ const sel = {
 };
 
 const MIN_SEL = 20; // Minimum selection size in px
+
+const AVAILABLE_MODELS = {
+  gemini: [
+    { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Preview)" },
+    { id: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
+    { id: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash-Lite" },
+    { id: "gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+    { id: "gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    { id: "gemini-2.5-flash-lite", label: "Gemini 2.5 Flash-Lite" }
+  ],
+  ollama: [
+    { id: "qwen3.5:cloud", label: "Qwen 3.5 Cloud" },
+    { id: "qwen3.5:397b", label: "Qwen 3.5 397B" },
+    { id: "gemma4:31b-cloud", label: "Gemma 4 31B" },
+    { id: "kimi-k2.5:cloud", label: "Kimi K2.5" },
+    { id: "llama3.2:latest", label: "Llama 3.2" }
+  ],
+  mistral: [
+    { id: "mistral-large-latest", label: "Mistral Large" },
+    { id: "mistral-medium-latest", label: "Mistral Medium" },
+    { id: "pixtral-large-latest", label: "Pixtral Large" },
+    { id: "codestral-latest", label: "Codestral" }
+  ],
+  groq: [
+    { id: "meta-llama/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout 17B" },
+    { id: "meta-llama/llama-4-maverick-17b-128e-instruct", label: "Llama 4 Maverick 17B" },
+    { id: "groq/compound", label: "Compound Groq" },
+    { id: "qwen-qwq-32b", label: "Qwen QwQ 32B" }
+  ]
+};
 
 /* =========================================================
    UTILITY
@@ -243,15 +283,88 @@ el.darkToggle.addEventListener("click", () => {
    SETTINGS
    ========================================================= */
 
+function renderSettingsModels() {
+  el.modelsView.innerHTML = "";
+  
+  const providers = [
+    { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
+    { id: "ollama", name: "Ollama Cloud", icon: "ollama.svg" },
+    { id: "mistral", name: "Mistral AI", icon: "mistral.svg" },
+    { id: "groq", name: "Groq", icon: "groq.svg" }
+  ];
+
+  providers.forEach(p => {
+    const isEnabled = state.enabledProviders[p.id];
+    
+    // Header
+    const header = document.createElement("div");
+    header.className = "settings-provider-header";
+    header.innerHTML = `
+      <div class="provider-header-left">
+        <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="provider-logo" alt="${p.name}" />
+        <span>${p.name}</span>
+      </div>
+      <label class="toggle-switch">
+        <input type="checkbox" class="provider-toggle" data-provider="${p.id}" ${isEnabled ? "checked" : ""}>
+        <span class="slider"></span>
+      </label>
+    `;
+    el.modelsView.appendChild(header);
+
+    // Models container
+    if (isEnabled && AVAILABLE_MODELS[p.id]) {
+      const grid = document.createElement("div");
+      grid.className = "models-grid";
+      
+      AVAILABLE_MODELS[p.id].forEach(m => {
+        const isSelected = state.selectedModels[p.id].includes(m.id);
+        const lbl = document.createElement("label");
+        lbl.className = "model-checkbox-label";
+        lbl.innerHTML = `
+          <input type="checkbox" class="model-checkbox" data-provider="${p.id}" value="${m.id}" ${isSelected ? "checked" : ""}>
+          ${m.label}
+        `;
+        grid.appendChild(lbl);
+      });
+      el.modelsView.appendChild(grid);
+    }
+    
+    const divider = document.createElement("div");
+    divider.className = "settings-divider";
+    el.modelsView.appendChild(divider);
+  });
+
+  // Attach event listeners
+  el.modelsView.querySelectorAll(".provider-toggle").forEach(cb => {
+    cb.addEventListener("change", e => {
+      state.enabledProviders[e.target.dataset.provider] = e.target.checked;
+      renderSettingsModels(); // re-render to show/hide models
+    });
+  });
+
+  el.modelsView.querySelectorAll(".model-checkbox").forEach(cb => {
+    cb.addEventListener("change", e => {
+      const p = e.target.dataset.provider;
+      const val = e.target.value;
+      if (e.target.checked) {
+        if (!state.selectedModels[p].includes(val)) {
+          state.selectedModels[p].push(val);
+        }
+      } else {
+        state.selectedModels[p] = state.selectedModels[p].filter(x => x !== val);
+      }
+    });
+  });
+}
+
 function openSettings() {
   el.apiKeyInput.value = state.apiKey;
   el.groqApiKeyInput.value = state.groqApiKey;
   el.mistralApiKeyInput.value = state.mistralApiKey;
   el.ollamaApiKeyInput.value = state.ollamaApiKey;
-  el.geminiModelSelect.value = state.geminiModel;
-  el.groqModelSelect.value = state.groqModel;
-  el.mistralModelSelect.value = state.mistralModel;
-  el.ollamaModelSelect.value = state.ollamaModel;
+  
+  renderSettingsModels();
+  
   el.settingsSt.classList.add("hidden");
   el.settingsOv.classList.remove("hidden");
   setTimeout(() => el.apiKeyInput.focus(), 80);
@@ -259,6 +372,24 @@ function openSettings() {
 function closeSettings() {
   el.settingsOv.classList.add("hidden");
 }
+
+el.tabApiKeys.addEventListener("click", () => {
+  el.tabApiKeys.classList.add("active");
+  el.tabModels.classList.remove("active");
+  el.apiKeysView.classList.add("active");
+  el.apiKeysView.classList.remove("hidden");
+  el.modelsView.classList.remove("active");
+  el.modelsView.classList.add("hidden");
+});
+
+el.tabModels.addEventListener("click", () => {
+  el.tabModels.classList.add("active");
+  el.tabApiKeys.classList.remove("active");
+  el.modelsView.classList.add("active");
+  el.modelsView.classList.remove("hidden");
+  el.apiKeysView.classList.remove("active");
+  el.apiKeysView.classList.add("hidden");
+});
 
 el.settingsBtn.addEventListener("click", openSettings);
 el.settingsClose.addEventListener("click", closeSettings);
@@ -295,10 +426,6 @@ el.saveKey.addEventListener("click", () => {
   state.groqApiKey = groqKey;
   state.mistralApiKey = mistralKey;
   state.ollamaApiKey = ollaKey;
-  state.geminiModel = el.geminiModelSelect.value;
-  state.groqModel = el.groqModelSelect.value;
-  state.mistralModel = el.mistralModelSelect.value;
-  state.ollamaModel = el.ollamaModelSelect.value;
 
   if (gemKey) localStorage.setItem("mathai-apikey", gemKey);
   else localStorage.removeItem("mathai-apikey");
@@ -309,12 +436,11 @@ el.saveKey.addEventListener("click", () => {
   if (ollaKey) localStorage.setItem("mathai-ollama-apikey", ollaKey);
   else localStorage.removeItem("mathai-ollama-apikey");
 
-  localStorage.setItem("mathai-gemini-model", state.geminiModel);
-  localStorage.setItem("mathai-groq-model", state.groqModel);
-  localStorage.setItem("mathai-mistral-model", state.mistralModel);
-  localStorage.setItem("mathai-ollama-model", state.ollamaModel);
+  localStorage.setItem("mathai-enabled-providers", JSON.stringify(state.enabledProviders));
+  localStorage.setItem("mathai-selected-models", JSON.stringify(state.selectedModels));
 
-  updateSwitcherModelLabel();
+  renderModelCarousel();
+
   showSettingsSt("✓ All settings saved!", "success");
   setTimeout(closeSettings, 1100);
 });
@@ -328,11 +454,26 @@ el.clearKey.addEventListener("click", () => {
   el.groqApiKeyInput.value = "";
   el.mistralApiKeyInput.value = "";
   el.ollamaApiKeyInput.value = "";
-  localStorage.removeItem("mathai-apikey");
-  localStorage.removeItem("mathai-groq-apikey");
-  localStorage.removeItem("mathai-mistral-apikey");
-  localStorage.removeItem("mathai-ollama-apikey");
-  showSettingsSt("All API keys cleared.", "success");
+  
+  state.enabledProviders = { gemini: true, ollama: true, mistral: true, groq: true };
+  state.selectedModels = {
+    gemini: ["gemini-3.1-pro-preview"],
+    ollama: ["qwen3.5:cloud"],
+    mistral: ["mistral-large-latest"],
+    groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
+  };
+  
+  renderSettingsModels();
+  
+  const keys = [
+    "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
+    "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id"
+  ];
+  keys.forEach(k => localStorage.removeItem(k));
+  
+  renderModelCarousel();
+  
+  showSettingsSt("All API keys and models reset.", "success");
 });
 
 function showSettingsSt(msg, type) {
@@ -345,26 +486,26 @@ function loadSettings() {
   const k = localStorage.getItem("mathai-apikey");
   const gk = localStorage.getItem("mathai-groq-apikey");
   const mk = localStorage.getItem("mathai-mistral-apikey");
-  const gm = localStorage.getItem("mathai-gemini-model");
-  const grm = localStorage.getItem("mathai-groq-model");
-  const mm = localStorage.getItem("mathai-mistral-model");
   const ok = localStorage.getItem("mathai-ollama-apikey");
-  const om = localStorage.getItem("mathai-ollama-model");
-  const pr = localStorage.getItem("mathai-provider");
+  
+  const ep = localStorage.getItem("mathai-enabled-providers");
+  const sm = localStorage.getItem("mathai-selected-models");
+  const activeTabId = localStorage.getItem("mathai-active-tab-id");
 
   if (k) state.apiKey = k;
   if (gk) state.groqApiKey = gk;
   if (mk) state.mistralApiKey = mk;
-  if (gm) state.geminiModel = gm;
-  if (grm) state.groqModel = grm;
-  if (mm) state.mistralModel = mm;
   if (ok) state.ollamaApiKey = ok;
-  if (om) state.ollamaModel = om;
-  if (pr) state.provider = pr;
+
+  try {
+    if (ep) state.enabledProviders = JSON.parse(ep);
+    if (sm) state.selectedModels = JSON.parse(sm);
+  } catch(e) {}
+  
+  if (activeTabId) state.activeTabId = activeTabId;
 
   // Sync UI
-  updateSwitcherPills();
-  updateSwitcherModelLabel();
+  renderModelCarousel();
 }
 
 /* =========================================================
@@ -901,28 +1042,99 @@ function cropSelectionToBase64() {
    MODEL SWITCHER
    ========================================================= */
 
-function updateSwitcherPills() {
-  const cards = el.modelCarousel.querySelectorAll(".model-card");
-  cards.forEach((card) => {
-    const isActive = card.dataset.provider === state.provider;
-    card.classList.toggle("active", isActive);
-    if (isActive) {
-      // Scroll into view if not visible
-      card.scrollIntoView({
-        behavior: "smooth",
-        inline: "center",
-        block: "nearest",
+function renderModelCarousel() {
+  el.modelCarousel.innerHTML = "";
+  
+  const providers = [
+    { id: "gemini", name: "Gemini", icon: "gemini.svg" },
+    { id: "ollama", name: "Ollama", icon: "ollama.svg" },
+    { id: "mistral", name: "Mistral", icon: "mistral.svg" },
+    { id: "groq", name: "Groq", icon: "groq.svg" }
+  ];
+
+  let firstTabId = null;
+  let activeTabExists = false;
+
+  providers.forEach(p => {
+    if (!state.enabledProviders[p.id]) return;
+    
+    state.selectedModels[p.id].forEach(modelId => {
+      const modelInfo = AVAILABLE_MODELS[p.id].find(m => m.id === modelId) || { label: modelId };
+      const tabId = `${p.id}:${modelId}`;
+      if (!firstTabId) firstTabId = tabId;
+      if (tabId === state.activeTabId) activeTabExists = true;
+
+      const card = document.createElement("div");
+      card.className = "model-card";
+      if (tabId === state.activeTabId) card.classList.add("active");
+      card.dataset.tabId = tabId;
+      card.dataset.providerId = p.id;
+      card.dataset.modelId = modelId;
+
+      card.innerHTML = `
+        <div class="card-icon-wrap">
+          <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="card-logo" alt="${p.name}" />
+        </div>
+        <div class="card-info">
+          <span class="card-label">${p.name}</span>
+          <span class="card-sublabel">${modelInfo.label.split(" ").slice(0,2).join(" ")}</span>
+        </div>
+      `;
+
+      card.addEventListener("click", () => {
+        handleCarouselTabClick(tabId, p.id, modelId, card);
       });
-    }
+
+      el.modelCarousel.appendChild(card);
+    });
   });
+
+  if (!activeTabExists) {
+    state.activeTabId = firstTabId;
+    if (firstTabId) localStorage.setItem("mathai-active-tab-id", state.activeTabId);
+    else localStorage.removeItem("mathai-active-tab-id");
+    const firstCard = el.modelCarousel.querySelector(".model-card");
+    if (firstCard) firstCard.classList.add("active");
+  }
 }
 
-function updateSwitcherModelLabel() {
-  if (el.labelGemini) el.labelGemini.textContent = state.geminiModel;
-  if (el.labelGroq) el.labelGroq.textContent = state.groqModel.split("/").pop();
-  if (el.labelMistral) el.labelMistral.textContent = state.mistralModel;
-  if (el.labelOllama)
-    el.labelOllama.textContent = state.ollamaModel.split(":")[0];
+function handleCarouselTabClick(newTabId, newProviderId, newModelId, cardEl) {
+  if (newTabId === state.activeTabId) return;
+
+  // Save current tab's state into cache
+  if (state.isSolved) {
+    state.answerCache[state.activeTabId] = {
+      rawResponse: state.rawResponse,
+      chatHistory: [...state.chatHistory],
+      solutionHTML: el.solutionContent.innerHTML,
+    };
+  }
+
+  state.activeTabId = newTabId;
+  localStorage.setItem("mathai-active-tab-id", newTabId);
+
+  // Update pills
+  el.modelCarousel.querySelectorAll(".model-card").forEach(c => c.classList.remove("active"));
+  cardEl.classList.add("active");
+  cardEl.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+
+  const pName = newProviderId.charAt(0).toUpperCase() + newProviderId.slice(1);
+
+  // Check cache
+  const cached = state.answerCache[newTabId];
+  if (cached) {
+    state.rawResponse = cached.rawResponse;
+    state.chatHistory = cached.chatHistory;
+    el.solutionContent.innerHTML = cached.solutionHTML;
+    state.isSolved = true;
+    setSolutionState("content");
+    enableOutputBtns();
+    showToast(`↩ Restored ${pName} answer`);
+  } else if (sel.active && sel.w >= MIN_SEL && sel.h >= MIN_SEL) {
+    showToast(`Switching to ${pName} — analyzing…`);
+    el.errorActions.classList.add("hidden");
+    solveSelection(false);
+  }
 }
 
 function initMobileSolutionHeaderInlineScroll() {
@@ -957,44 +1169,6 @@ function initMobileSolutionHeaderInlineScroll() {
   window.addEventListener("resize", sync, { passive: true });
   sync();
 }
-
-// Handle carousel interactions
-el.modelCarousel.querySelectorAll(".model-card").forEach((card) => {
-  card.addEventListener("click", () => {
-    const newProvider = card.dataset.provider;
-    if (newProvider === state.provider) return;
-
-    // Save current provider's state into cache
-    if (state.isSolved) {
-      state.answerCache[state.provider] = {
-        rawResponse: state.rawResponse,
-        chatHistory: [...state.chatHistory],
-        solutionHTML: el.solutionContent.innerHTML,
-      };
-    }
-
-    state.provider = newProvider;
-    localStorage.setItem("mathai-provider", newProvider);
-    updateSwitcherPills();
-    updateSwitcherModelLabel();
-
-    // Check if we have a cached answer for this provider
-    const cached = state.answerCache[newProvider];
-    if (cached) {
-      state.rawResponse = cached.rawResponse;
-      state.chatHistory = cached.chatHistory;
-      el.solutionContent.innerHTML = cached.solutionHTML;
-      state.isSolved = true;
-      setSolutionState("content");
-      enableOutputBtns();
-      showToast(`↩ Restored ${newProvider} answer`);
-    } else if (sel.active && sel.w >= MIN_SEL && sel.h >= MIN_SEL) {
-      showToast(`Switching to ${newProvider} — analyzing…`);
-      el.errorActions.classList.add("hidden");
-      solveSelection(false);
-    }
-  });
-});
 
 initMobileSolutionHeaderInlineScroll();
 
@@ -1046,7 +1220,7 @@ el.solveAllBtn.addEventListener("click", (e) => {
 
 async function solveAllSelection() {
   state.answerCache = {};
-  const currentProvider = state.provider;
+  const currentTabId = state.activeTabId;
 
   if (!sel.active || sel.w < MIN_SEL || sel.h < MIN_SEL) {
     showToast("Draw a selection first.");
@@ -1059,7 +1233,6 @@ async function solveAllSelection() {
     return;
   }
 
-  // Available providers and display names
   const providersKeys = {
     gemini: state.apiKey,
     groq: state.groqApiKey,
@@ -1067,16 +1240,17 @@ async function solveAllSelection() {
     ollama: state.ollamaApiKey,
   };
 
-  const providerNames = {
-    gemini: "Gemini",
-    groq: "Groq",
-    mistral: "Mistral",
-    ollama: "Ollama",
-  };
-  const toRun = Object.keys(providersKeys).filter((k) => providersKeys[k]);
+  const toRun = [];
+  Object.keys(providersKeys).forEach(p => {
+    if (providersKeys[p] && state.enabledProviders[p]) {
+      state.selectedModels[p].forEach(m => {
+        toRun.push({ provider: p, model: m, tabId: `${p}:${m}` });
+      });
+    }
+  });
 
   if (toRun.length === 0) {
-    showToast("⚙️ Add at least one API key in Settings first.");
+    showToast("⚙️ Add at least one API key and enable models in Settings first.");
     openSettings();
     return;
   }
@@ -1108,8 +1282,8 @@ async function solveAllSelection() {
     }
   }
 
-  toRun.forEach(async (provider) => {
-    const isCurrent = provider === currentProvider;
+  toRun.forEach(async ({ provider, model, tabId }) => {
+    const isCurrent = tabId === currentTabId;
 
     // UI elements
     let aiMsg = document.createElement("div");
@@ -1150,14 +1324,14 @@ async function solveAllSelection() {
         response = await callGeminiChat(
           chatHist,
           state.apiKey,
-          state.geminiModel,
+          model,
           onChunk,
         );
       } else if (provider === "groq") {
         response = await callGroqChat(
           base64,
           state.groqApiKey,
-          state.groqModel,
+          model,
           onChunk,
         );
         chatHist = [
@@ -1168,7 +1342,7 @@ async function solveAllSelection() {
         response = await callMistralChat(
           base64,
           state.mistralApiKey,
-          state.mistralModel,
+          model,
           onChunk,
         );
         chatHist = [
@@ -1179,7 +1353,7 @@ async function solveAllSelection() {
         response = await callOllamaChat(
           base64,
           state.ollamaApiKey,
-          state.ollamaModel,
+          model,
           onChunk,
         );
         chatHist = [
@@ -1188,7 +1362,7 @@ async function solveAllSelection() {
         ];
       }
 
-      state.answerCache[provider] = {
+      state.answerCache[tabId] = {
         rawResponse: response,
         chatHistory: chatHist,
         solutionHTML: isCurrent
@@ -1205,9 +1379,9 @@ async function solveAllSelection() {
       }
       updateHintWhenAllDone();
     } catch (err) {
-      console.error("All-models AI error [" + provider + "]:", err);
+      console.error("All-models AI error [" + tabId + "]:", err);
       const errHtml = getErrorHtml(
-        "Failed to analyze (" + (providerNames[provider] || provider) + ")",
+        "Failed to analyze (" + tabId + ")",
         err.message || "Unknown error",
       );
 
@@ -1220,7 +1394,7 @@ async function solveAllSelection() {
         el.solutionContent.insertAdjacentHTML("beforeend", errHtml);
         scrollToBottom();
       }
-      state.answerCache[provider] = {
+      state.answerCache[tabId] = {
         rawResponse: "",
         chatHistory: [],
         solutionHTML: errHtml,
@@ -1244,7 +1418,9 @@ async function solveSelection(resetGlobalCache = false) {
   if (resetGlobalCache) {
     state.answerCache = {};
   }
-  const currentProvider = state.provider; // Capture explicitly for this run to prevent race conditions when switching tabs
+  const currentTabId = state.activeTabId;
+  if (!currentTabId) return;
+  const [currentProvider, currentModel] = currentTabId.split(":");
 
   if (!sel.active || sel.w < MIN_SEL || sel.h < MIN_SEL) {
     showToast("Draw a selection first.");
@@ -1328,14 +1504,14 @@ async function solveSelection(resetGlobalCache = false) {
       response = await callGeminiChat(
         state.chatHistory,
         state.apiKey,
-        state.geminiModel,
+        currentModel,
         onChunk,
       );
     } else if (currentProvider === "groq") {
       response = await callGroqChat(
         base64,
         state.groqApiKey,
-        state.groqModel,
+        currentModel,
         onChunk,
       );
       state.chatHistory = [
@@ -1346,7 +1522,7 @@ async function solveSelection(resetGlobalCache = false) {
       response = await callMistralChat(
         base64,
         state.mistralApiKey,
-        state.mistralModel,
+        currentModel,
         onChunk,
       );
       state.chatHistory = [
@@ -1357,7 +1533,7 @@ async function solveSelection(resetGlobalCache = false) {
       response = await callOllamaChat(
         base64,
         state.ollamaApiKey,
-        state.ollamaModel,
+        currentModel,
         onChunk,
       );
       state.chatHistory = [
@@ -1368,7 +1544,7 @@ async function solveSelection(resetGlobalCache = false) {
 
     state.rawResponse = response;
     state.isSolved = true;
-    state.answerCache[currentProvider] = {
+    state.answerCache[currentTabId] = {
       rawResponse: response,
       chatHistory: [...state.chatHistory],
       solutionHTML: el.solutionContent.innerHTML,
@@ -1412,7 +1588,9 @@ el.chatInput.addEventListener("keydown", (e) => {
 });
 
 async function sendFollowUp() {
-  const currentProvider = state.provider;
+  const currentTabId = state.activeTabId;
+  if (!currentTabId) return;
+  const [currentProvider, currentModel] = currentTabId.split(":");
   const text = el.chatInput.value.trim();
   if (!text) return;
   el.chatInput.value = "";
@@ -1454,7 +1632,7 @@ async function sendFollowUp() {
       response = await callGeminiChat(
         state.chatHistory,
         providerKey,
-        state.geminiModel,
+        currentModel,
         onChunk,
       );
       state.chatHistory.push({ role: "model", parts: [{ text: response }] });
@@ -1463,7 +1641,7 @@ async function sendFollowUp() {
       response = await callGroqFollowUp(
         state.chatHistory,
         providerKey,
-        state.groqModel,
+        currentModel,
         onChunk,
       );
       state.chatHistory.push({ role: "assistant", content: response });
@@ -1472,7 +1650,7 @@ async function sendFollowUp() {
       response = await callMistralFollowUp(
         state.chatHistory,
         providerKey,
-        state.mistralModel,
+        currentModel,
         onChunk,
       );
       state.chatHistory.push({ role: "assistant", content: response });
@@ -1481,7 +1659,7 @@ async function sendFollowUp() {
       response = await callOllamaFollowUp(
         state.chatHistory,
         providerKey,
-        state.ollamaModel,
+        currentModel,
         onChunk,
       );
       state.chatHistory.push({ role: "assistant", content: response });
@@ -1490,13 +1668,13 @@ async function sendFollowUp() {
     state.rawResponse += "\n\n" + response;
 
     // Update cache
-    if (state.answerCache[currentProvider]) {
-      state.answerCache[currentProvider].rawResponse = state.rawResponse;
-      state.answerCache[currentProvider].chatHistory = [...state.chatHistory];
-      state.answerCache[currentProvider].solutionHTML =
-        currentProvider === state.provider
+    if (state.answerCache[currentTabId]) {
+      state.answerCache[currentTabId].rawResponse = state.rawResponse;
+      state.answerCache[currentTabId].chatHistory = [...state.chatHistory];
+      state.answerCache[currentTabId].solutionHTML =
+        currentTabId === state.activeTabId
           ? el.solutionContent.innerHTML
-          : state.answerCache[currentProvider].solutionHTML;
+          : state.answerCache[currentTabId].solutionHTML;
     }
   } catch (err) {
     el.solutionContent
@@ -2026,21 +2204,20 @@ el.downloadBtn.addEventListener("click", async () => {
       minute: "2-digit",
     });
 
+    const currentTabId = state.activeTabId;
+    if(!currentTabId) return;
+    const [currentProvider, currentModel] = currentTabId.split(":");
+
     const providerNames = {
       gemini: "Gemini",
       groq: "Groq",
       mistral: "Mistral",
+      ollama: "Ollama"
     };
-    const modelName =
-      state.provider === "gemini"
-        ? state.geminiModel
-        : state.provider === "groq"
-          ? state.groqModel
-          : state.mistralModel;
-
+    
     // 2. Populate template
     el.pdfDate.textContent = dateStr;
-    el.pdfModel.textContent = `Model: ${providerNames[state.provider]} ${modelName}`;
+    el.pdfModel.textContent = `Model: ${providerNames[currentProvider]} ${currentModel}`;
 
     // Get high-quality crop
     const cropBase64 = cropSelectionToBase64();

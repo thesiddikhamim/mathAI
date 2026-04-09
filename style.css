@@ -879,6 +879,50 @@ body {
   gap: 14px;
   overflow-y: auto;
 }
+
+/* ── Settings Tabs ─── */
+.settings-tabs {
+  display: flex;
+  gap: 10px;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 10px;
+}
+.settings-tab {
+  background: transparent;
+  border: none;
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  padding: 8px 16px;
+  cursor: pointer;
+  position: relative;
+  transition: color var(--tr);
+}
+.settings-tab:hover {
+  color: var(--text-primary);
+}
+.settings-tab.active {
+  color: var(--accent);
+}
+.settings-tab.active::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--accent);
+}
+.settings-view {
+  display: none;
+  flex-direction: column;
+  gap: 14px;
+}
+.settings-view.active {
+  display: flex;
+}
+
 .settings-section {
   display: flex;
   flex-direction: column;
@@ -889,12 +933,110 @@ body {
 .settings-provider-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
   font-size: 13px;
   font-weight: 700;
   color: var(--text-primary);
   letter-spacing: 0.2px;
   margin-top: 4px;
+}
+.provider-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Checkbox Grid for Models */
+.models-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.model-checkbox-label {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 10px 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: all 0.2s cubic-bezier(0.2, 0, 0, 1);
+  user-select: none;
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+}
+.model-checkbox-label:hover {
+  background: var(--bg-hover);
+  border-color: var(--text-muted);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+.model-checkbox-label:has(input[type="checkbox"]:checked) {
+  background: var(--accent-glow);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
+  transform: translateY(0);
+}
+.model-checkbox-label:active {
+  transform: scale(0.97);
+}
+.model-checkbox-label input[type="checkbox"] {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+/* Toggle Switch Styles */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+}
+.toggle-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--border);
+  transition: var(--tr);
+  border-radius: 20px;
+}
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: var(--tr);
+  border-radius: 50%;
+}
+input:checked + .slider {
+  background-color: var(--success);
+}
+input:checked + .slider:before {
+  transform: translateX(16px);
 }
 
 .provider-logo {
@@ -2022,4 +2164,12 @@ body {
   .solution-header-actions #copyLatexBtn {
     display: none;
   }
+  .models-grid {
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 8px;
+  }
+  .settings-provider-header {
+    flex-wrap: wrap; /* allow wrapping if too constrained */
+  }
 }
+

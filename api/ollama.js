@@ -29,6 +29,21 @@ export default async function handler(req, res) {
       });
     }
 
+    if (stream) {
+      res.writeHead(200, {
+        'Content-Type': 'application/x-ndjson',
+        'Transfer-Encoding': 'chunked'
+      });
+      const reader = ollamaResponse.body.getReader();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(value);
+      }
+      res.end();
+      return;
+    }
+
     const data = await ollamaResponse.json();
     return res.status(200).json(data);
   } catch (err) {

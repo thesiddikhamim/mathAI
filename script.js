@@ -772,22 +772,32 @@ function cropSelectionToBase64() {
   // Crop rect in natural pixel space
   const cropX = Math.max(0, (sel.x - offsetX) * scaleX);
   const cropY = Math.max(0, (sel.y - offsetY) * scaleY);
-  const cropW = Math.min(sel.w * scaleX, naturalW - cropX);
-  const cropH = Math.min(sel.h * scaleY, naturalH - cropY);
+  let cropW = Math.min(sel.w * scaleX, naturalW - cropX);
+  let cropH = Math.min(sel.h * scaleY, naturalH - cropY);
 
   if (cropW <= 0 || cropH <= 0) return null;
 
-  tmp.width  = cropW;
-  tmp.height = cropH;
-
-  if (state.fileType === 'image') {
-    ctx.drawImage(source, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-  } else {
-    ctx.drawImage(source, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+  // Scale down if image is too large (max 1000px per dimension)
+  const maxDim = 1000;
+  let finalW = cropW;
+  let finalH = cropH;
+  if (cropW > maxDim || cropH > maxDim) {
+    const ratio = Math.min(maxDim / cropW, maxDim / cropH);
+    finalW = Math.floor(cropW * ratio);
+    finalH = Math.floor(cropH * ratio);
   }
 
-  // Return base64 without the data:image/png;base64, prefix
-  return tmp.toDataURL('image/png').split(',')[1];
+  tmp.width  = finalW;
+  tmp.height = finalH;
+
+  if (state.fileType === 'image') {
+    ctx.drawImage(source, cropX, cropY, cropW, cropH, 0, 0, finalW, finalH);
+  } else {
+    ctx.drawImage(source, cropX, cropY, cropW, cropH, 0, 0, finalW, finalH);
+  }
+
+  // Return base64 without the data
+  return tmp.toDataURL('image/jpeg', 0.8).split(',')[1];
 }
 
 /* =========================================================
@@ -978,32 +988,50 @@ async function solveSelection(resetGlobalCache = false) {
   }
 
   try {
-    let response;
+    let response = '';
+
+    // Create the container where chunks will go right away
+    setSolutionState('content');
+    el.solutionContent.innerHTML = '';
+    const thinkingIndicator = appendThinkingIndicator();
+    const aiMsg = document.createElement('div');
+    aiMsg.className = 'chat-msg-ai';
+    el.solutionContent.appendChild(aiMsg);
+
+    let firstChunkReceived = false;
+    const onChunk = (fullText, chunkText) => {
+      if (!firstChunkReceived) {
+        firstChunkReceived = true;
+        if (thinkingIndicator.parentNode) thinkingIndicator.remove();
+      }
+      renderMarkdown(fullText, aiMsg);
+      scrollToBottom();
+    };
 
     if (state.provider === 'gemini') {
       state.chatHistory = [
         {
           role: 'user',
           parts: [
-            { inlineData: { mimeType: 'image/png', data: base64 } }
+            { inlineData: { mimeType: 'image/jpeg', data: base64 } }
           ]
         }
       ];
-      response = await callGeminiChat(state.chatHistory, state.apiKey, state.geminiModel);
+      response = await callGeminiChat(state.chatHistory, state.apiKey, state.geminiModel, onChunk);
     } else if (state.provider === 'groq') {
-      response = await callGroqChat(base64, state.groqApiKey, state.groqModel);
+      response = await callGroqChat(base64, state.groqApiKey, state.groqModel, onChunk);
       state.chatHistory = [
         { role: 'user',      content: '[Image provided]' },
         { role: 'assistant', content: response }
       ];
     } else if (state.provider === 'mistral') {
-      response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel);
+      response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel, onChunk);
       state.chatHistory = [
         { role: 'user',      content: '[Image provided]' },
         { role: 'assistant', content: response }
       ];
     } else if (state.provider === 'ollama') {
-      response = await callOllamaChat(base64, state.ollamaApiKey, state.ollamaModel);
+      response = await callOllamaChat(base64, state.ollamaApiKey, state.ollamaModel, onChunk);
       state.chatHistory = [
         { role: 'user',      content: '[Image provided]' },
         { role: 'assistant', content: response }
@@ -1012,24 +1040,22 @@ async function solveSelection(resetGlobalCache = false) {
 
     state.rawResponse = response;
     state.isSolved = true;
-    // Cache this answer
     state.answerCache[state.provider] = {
       rawResponse:  response,
       chatHistory:  [...state.chatHistory],
-      solutionHTML: null, // set after render
+      solutionHTML: el.solutionContent.innerHTML,
     };
-    renderSolution(response);
-    // Store rendered HTML in cache
-    state.answerCache[state.provider].solutionHTML = el.solutionContent.innerHTML;
+    
+    if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
     enableOutputBtns();
     setHint('Done! ' + (isMobile() ? 'Switch to Solution tab to see the answer.' : 'Drag a new selection or ask a follow-up question below.'));
-    // Auto-navigate to solution on mobile
 
     if (isMobile()) {
       const tabSol = document.getElementById('tabSolution');
       if (tabSol) tabSol.click();
     }
   } catch (err) {
+    if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
     setSolutionState('empty');
     state.isSolved = false;
     el.errorActions.classList.remove('hidden');
@@ -1060,31 +1086,48 @@ async function sendFollowUp() {
   }[state.provider];
 
   disableOutputBtns();
-  const thinkingIndicator = appendThinkingIndicator();
 
   try {
-
     let response;
+    
+    // Append thinking indicator
+    const thinkingIndicator = appendThinkingIndicator();
+    
+    // Create the container for the AI message right away
+    const aiMsg = document.createElement('div');
+    aiMsg.className = 'chat-msg-ai';
+    el.solutionContent.appendChild(aiMsg);
+    
+    let firstChunkReceived = false;
+    const onChunk = (fullText, chunkText) => {
+      if (!firstChunkReceived) {
+        firstChunkReceived = true;
+        if (thinkingIndicator.parentNode) thinkingIndicator.remove();
+      }
+      renderMarkdown(fullText, aiMsg);
+      scrollToBottom();
+    };
+
     if (state.provider === 'gemini') {
       state.chatHistory.push({ role: 'user', parts: [{ text }] });
-      response = await callGeminiChat(state.chatHistory, providerKey, state.geminiModel);
+      response = await callGeminiChat(state.chatHistory, providerKey, state.geminiModel, onChunk);
       state.chatHistory.push({ role: 'model', parts: [{ text: response }] });
     } else if (state.provider === 'groq') {
       state.chatHistory.push({ role: 'user', content: text });
-      response = await callGroqFollowUp(state.chatHistory, providerKey, state.groqModel);
+      response = await callGroqFollowUp(state.chatHistory, providerKey, state.groqModel, onChunk);
       state.chatHistory.push({ role: 'assistant', content: response });
     } else if (state.provider === 'mistral') {
       state.chatHistory.push({ role: 'user', content: text });
-      response = await callMistralFollowUp(state.chatHistory, providerKey, state.mistralModel);
+      response = await callMistralFollowUp(state.chatHistory, providerKey, state.mistralModel, onChunk);
       state.chatHistory.push({ role: 'assistant', content: response });
     } else if (state.provider === 'ollama') {
       state.chatHistory.push({ role: 'user', content: text });
-      response = await callOllamaFollowUp(state.chatHistory, providerKey, state.ollamaModel);
+      response = await callOllamaFollowUp(state.chatHistory, providerKey, state.ollamaModel, onChunk);
       state.chatHistory.push({ role: 'assistant', content: response });
     }
 
     state.rawResponse += '\n\n' + response;
-    appendAIMessage(response);
+    
     // Update cache
     if (state.answerCache[state.provider]) {
       state.answerCache[state.provider].rawResponse  = state.rawResponse;
@@ -1092,10 +1135,11 @@ async function sendFollowUp() {
       state.answerCache[state.provider].solutionHTML = el.solutionContent.innerHTML;
     }
   } catch (err) {
+    if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
     showToast('❌ Follow-up request failed.');
     console.error(err);
   } finally {
-    if (typeof thinkingIndicator !== 'undefined') thinkingIndicator.remove();
+    if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
     enableOutputBtns();
   }
 }
@@ -1117,8 +1161,8 @@ function appendThinkingIndicator() {
 /**
  * Multi-turn Gemini API call
  */
-async function callGeminiChat(contents, apiKey, model) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+async function callGeminiChat(contents, apiKey, model, onChunk) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
   const body = {
     system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
@@ -1141,16 +1185,15 @@ async function callGeminiChat(contents, apiKey, model) {
     throw new Error(err?.error?.message || `HTTP ${res.status}`);
   }
 
-  const data = await res.json();
-  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) throw new Error('Empty response from Gemini.');
-  return text;
+  return processStream(res, onChunk, (chunk) => {
+    return chunk?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+  });
 }
 
 /**
  * Groq vision/text call — sends image as base64 in the content
  */
-async function callGroqChat(base64, apiKey, model) {
+async function callGroqChat(base64, apiKey, model, onChunk) {
   const url = 'https://api.groq.com/openai/v1/chat/completions';
 
   // Determine if this model likely supports vision
@@ -1186,6 +1229,7 @@ async function callGroqChat(base64, apiKey, model) {
     messages,
     temperature:     0.25,
     max_tokens:      8192,
+    stream:          true,
   };
 
   const res = await fetch(url, {
@@ -1202,19 +1246,18 @@ async function callGroqChat(base64, apiKey, model) {
     throw new Error(err?.error?.message || `Groq HTTP ${res.status}`);
   }
 
-  const data = await res.json();
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Empty response from Groq.');
-  return text;
+  return processStream(res, onChunk, (chunk) => {
+    return chunk?.choices?.[0]?.delta?.content || '';
+  });
 }
 
 /**
  * Groq follow-up (text-only conversation)
  */
-async function callGroqFollowUp(messages, apiKey, model) {
+async function callGroqFollowUp(messages, apiKey, model, onChunk) {
   const url = 'https://api.groq.com/openai/v1/chat/completions';
   const fullMessages = [{ role: 'system', content: SYSTEM_PROMPT }, ...messages];
-  const body = { model, messages: fullMessages, temperature: 0.15, max_tokens: 8192 };
+  const body = { model, messages: fullMessages, temperature: 0.15, max_tokens: 8192, stream: true };
 
   const res = await fetch(url, {
     method:  'POST',
@@ -1226,14 +1269,15 @@ async function callGroqFollowUp(messages, apiKey, model) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || `Groq HTTP ${res.status}`);
   }
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content || '';
+  return processStream(res, onChunk, (chunk) => {
+    return chunk?.choices?.[0]?.delta?.content || '';
+  });
 }
 
 /**
  * Mistral vision call — Pixtral models support vision
  */
-async function callMistralChat(base64, apiKey, model) {
+async function callMistralChat(base64, apiKey, model, onChunk) {
   const url = 'https://api.mistral.ai/v1/chat/completions';
 
   // Pixtral models support vision
@@ -1263,6 +1307,7 @@ async function callMistralChat(base64, apiKey, model) {
     ],
     temperature: 0.15,
     max_tokens:  8192,
+    stream:      true,
   };
 
   const res = await fetch(url, {
@@ -1279,16 +1324,15 @@ async function callMistralChat(base64, apiKey, model) {
     throw new Error(err?.error?.message || `Mistral HTTP ${res.status}`);
   }
 
-  const data = await res.json();
-  const text = data?.choices?.[0]?.message?.content;
-  if (!text) throw new Error('Empty response from Mistral.');
-  return text;
+  return processStream(res, onChunk, (chunk) => {
+    return chunk?.choices?.[0]?.delta?.content || '';
+  });
 }
 
 /**
  * Mistral follow-up (text conversation)
  */
-async function callMistralFollowUp(messages, apiKey, model) {
+async function callMistralFollowUp(messages, apiKey, model, onChunk) {
   const url = 'https://api.mistral.ai/v1/chat/completions';
   // Convert content arrays to strings for follow-up
   const cleanMessages = messages.map(m => ({
@@ -1301,7 +1345,8 @@ async function callMistralFollowUp(messages, apiKey, model) {
     model, 
     messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...cleanMessages], 
     temperature: 0.15, 
-    max_tokens: 8192 
+    max_tokens: 8192,
+    stream: true 
   };
 
   const res = await fetch(url, {
@@ -1314,14 +1359,15 @@ async function callMistralFollowUp(messages, apiKey, model) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error?.message || `Mistral HTTP ${res.status}`);
   }
-  const data = await res.json();
-  return data?.choices?.[0]?.message?.content || '';
+  return processStream(res, onChunk, (chunk) => {
+    return chunk?.choices?.[0]?.delta?.content || '';
+  });
 }
 
 /**
  * Ollama generic OpenAPI call logic
  */
-async function callOllamaChat(base64, apiKey, model) {
+async function callOllamaChat(base64, apiKey, model, onChunk) {
   const url = `/api/ollama`;
   const messages = [
     { role: 'system', content: SYSTEM_PROMPT },
@@ -1335,7 +1381,7 @@ async function callOllamaChat(base64, apiKey, model) {
   const headers = { 'Content-Type': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
 
-  const body = { model, messages, stream: false, options: { temperature: 0.25 } };
+  const body = { model, messages, stream: true, options: { temperature: 0.25 } };
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 
   if (!res.ok) {
@@ -1343,13 +1389,12 @@ async function callOllamaChat(base64, apiKey, model) {
     throw new Error(err?.error || `Ollama Cloud HTTP ${res.status}`);
   }
 
-  const data = await res.json();
-  const text = data?.message?.content;
-  if (!text) throw new Error('Empty response from Ollama Cloud.');
-  return text;
+  return processStream(res, onChunk, (chunk) => {
+    return chunk?.message?.content || '';
+  });
 }
 
-async function callOllamaFollowUp(messages, apiKey, model) {
+async function callOllamaFollowUp(messages, apiKey, model, onChunk) {
   const url = `/api/ollama`;
   const cleanMessages = messages.map(m => ({
     role: m.role,
@@ -1361,15 +1406,16 @@ async function callOllamaFollowUp(messages, apiKey, model) {
   const headers = { 'Content-Type': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
   
-  const body = { model, messages: fullMessages, stream: false, options: { temperature: 0.15 } };
+  const body = { model, messages: fullMessages, stream: true, options: { temperature: 0.15 } };
   const res = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err?.error || `Ollama Cloud HTTP ${res.status}`);
   }
-  const data = await res.json();
-  return data?.message?.content || '';
+  return processStream(res, onChunk, (chunk) => {
+    return chunk?.message?.content || '';
+  });
 }
 
 /* =========================================================
@@ -1440,6 +1486,51 @@ function appendAIMessage(raw) {
 
 function scrollToBottom() {
   el.solutionContent.parentElement.scrollTop = el.solutionContent.parentElement.scrollHeight;
+}
+
+/**
+ * Process an SSE or NDJSON stream response
+ */
+async function processStream(response, onChunk, parser) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder('utf-8');
+  let done = false;
+  let fullText = '';
+  let buffer = '';
+
+  while (!done) {
+    const { value, done: doneReading } = await reader.read();
+    done = doneReading;
+    if (value) {
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || ''; // Keep the last incomplete line in buffer
+
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+
+        // Strip "data: " prefix for SSE
+        if (line.startsWith('data: ')) {
+          line = line.substring(6);
+        }
+
+        if (line === '[DONE]') continue; // OpenAI end token
+
+        try {
+          const parsed = JSON.parse(line);
+          const chunkText = parser(parsed);
+          if (chunkText) {
+            fullText += chunkText;
+            if (onChunk) onChunk(fullText, chunkText);
+          }
+        } catch (e) {
+          // Ignore incomplete JSON chunks or comments
+        }
+      }
+    }
+  }
+  return fullText;
 }
 
 /* =========================================================

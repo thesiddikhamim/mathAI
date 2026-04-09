@@ -76,6 +76,7 @@ const el = {
   maskLeft:     $('maskLeft'),
   maskRight:    $('maskRight'),
   solveSelBtn:  $('solveSelBtn'),
+  solveAllBtn:  $('solveAllBtn'),
   clearSelBtn:  $('clearSelBtn'),
 
   // Solution
@@ -694,6 +695,28 @@ function renderSelection() {
     // Flip toolbar if near bottom
     const nearBottom = (y + h + 60) > H;
     el.selBox.classList.toggle('toolbar-above', nearBottom);
+
+    // Prevent toolbar from overflowing horizontally
+    const tb = document.getElementById('selToolbar');
+    if (tb) {
+      tb.style.left = '';
+      tb.style.right = '';
+      tb.style.transform = '';
+      const tbW = tb.offsetWidth || 200; // fallback if offsetWidth 0
+      const centerX = x + w / 2;
+      
+      if (centerX - tbW / 2 < 10) {
+        tb.style.left = (10 - x) + 'px';
+        tb.style.transform = 'none';
+      } else if (centerX + tbW / 2 > W - 10) {
+        tb.style.left = 'auto';
+        tb.style.right = (10 - (W - (x + w))) + 'px';
+        tb.style.transform = 'none';
+      } else {
+        tb.style.left = '50%';
+        tb.style.transform = 'translateX(-50%)';
+      }
+    }
   });
 }
 
@@ -937,6 +960,148 @@ el.solveSelBtn.addEventListener('click', e => {
   solveSelection(true);
 });
 
+el.solveAllBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  solveAllSelection();
+});
+
+async function solveAllSelection() {
+  state.answerCache = {};
+  const currentProvider = state.provider;
+
+  if (!sel.active || sel.w < MIN_SEL || sel.h < MIN_SEL) {
+    showToast('Draw a selection first.');
+    return;
+  }
+
+  const base64 = cropSelectionToBase64();
+  if (!base64) {
+    showToast('❌ Could not capture the selection. Try again.');
+    return;
+  }
+  
+  // Available providers and display names
+  const providersKeys = {
+    gemini:  state.apiKey,
+    groq:    state.groqApiKey,
+    mistral: state.mistralApiKey,
+    ollama:  state.ollamaApiKey,
+  };
+  
+  const providerNames = { gemini: 'Gemini', groq: 'Groq', mistral: 'Mistral', ollama: 'Ollama' };
+  const toRun = Object.keys(providersKeys).filter(k => providersKeys[k]);
+  
+  if (toRun.length === 0) {
+      showToast('⚙️ Add at least one API key in Settings first.');
+      openSettings();
+      return;
+  }
+
+  setSolutionState('loading');
+  disableOutputBtns();
+  state.isSolved = false;
+  el.solutionContent.innerHTML = '';
+  el.errorActions.classList.add('hidden');
+  el.loadingSubText.textContent = `All active models (${toRun.length}) are analyzing your selection…`;
+  
+  if (isMobile() && window.showPanel) {
+    window.showPanel('solution');
+  }
+  
+  setSolutionState('content');
+  
+  let overallDoneCount = 0;
+  function updateHintWhenAllDone() {
+      overallDoneCount++;
+      if (overallDoneCount === toRun.length) {
+          enableOutputBtns();
+          setHint('Done! ' + (isMobile() ? 'Switch to Solution tab to see the answers.' : 'Try switching models via tabs or drag a new selection.'));
+      }
+  }
+
+  toRun.forEach(async (provider) => {
+    const isCurrent = (provider === currentProvider);
+    
+    // UI elements
+    let aiMsg = document.createElement('div');
+    aiMsg.className = 'chat-msg-ai';
+    let thinkingIndicator;
+    
+    if (isCurrent) {
+        thinkingIndicator = appendThinkingIndicator();
+        el.solutionContent.appendChild(aiMsg);
+    }
+    
+    let firstChunkReceived = false;
+    const onChunk = (fullText, chunkText) => {
+      if (isCurrent) {
+          if (!firstChunkReceived) {
+             firstChunkReceived = true;
+             if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
+          }
+          renderMarkdown(fullText, aiMsg);
+          scrollToBottom();
+      } else {
+          renderMarkdown(fullText, aiMsg);
+      }
+    };
+    
+    try {
+        let response = '';
+        let chatHist = [];
+        
+        if (provider === 'gemini') {
+            chatHist = [{ role: 'user', parts: [{ inlineData: { mimeType: 'image/jpeg', data: base64 } }] }];
+            response = await callGeminiChat(chatHist, state.apiKey, state.geminiModel, onChunk);
+        } else if (provider === 'groq') {
+            response = await callGroqChat(base64, state.groqApiKey, state.groqModel, onChunk);
+            chatHist = [{ role: 'user', content: '[Image provided]' }, { role: 'assistant', content: response }];
+        } else if (provider === 'mistral') {
+             response = await callMistralChat(base64, state.mistralApiKey, state.mistralModel, onChunk);
+            chatHist = [{ role: 'user', content: '[Image provided]' }, { role: 'assistant', content: response }];
+        } else if (provider === 'ollama') {
+            response = await callOllamaChat(base64, state.ollamaApiKey, state.ollamaModel, onChunk);
+            chatHist = [{ role: 'user', content: '[Image provided]' }, { role: 'assistant', content: response }];
+        }
+        
+        state.answerCache[provider] = {
+            rawResponse: response,
+            chatHistory: chatHist,
+            solutionHTML: isCurrent ? el.solutionContent.innerHTML : aiMsg.outerHTML
+        };
+        
+        if (isCurrent) {
+           state.rawResponse = response;
+           state.chatHistory = [...chatHist];
+           state.isSolved = true;
+           if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
+        }
+        updateHintWhenAllDone();
+    } catch (err) {
+        console.error('All-models AI error [' + provider + ']:', err);
+        const errMsg = '<div class="chat-msg-ai"><p>❌ Failed to analyze: ' + (err.message || 'Unknown error') + '</p></div>';
+        
+        if (isCurrent) {
+           if (typeof thinkingIndicator !== 'undefined' && thinkingIndicator.parentNode) thinkingIndicator.remove();
+           setSolutionState('empty');
+           state.isSolved = false;
+           el.errorActions.classList.remove('hidden');
+           showToast('❌ ' + (providerNames[provider] || provider) + ' failed.');
+        }
+        state.answerCache[provider] = {
+            rawResponse: "",
+            chatHistory: [],
+            solutionHTML: errMsg
+        };
+        updateHintWhenAllDone();
+    }
+  });
+
+  if (isMobile()) {
+      const tabSol = document.getElementById('tabSolution');
+      if (tabSol) tabSol.click();
+  }
+}
 
 /**
  * AI SOLVE — Main dispatcher

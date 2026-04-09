@@ -1425,6 +1425,17 @@ async function callOllamaFollowUp(messages, apiKey, model, onChunk) {
 function renderMarkdown(raw, container) {
   let processed = raw;
 
+  // Auto-close unclosed blocks to prevent formatting glitches during streaming
+  const numBackticks = (processed.match(/```/g) || []).length;
+  if (numBackticks % 2 !== 0) processed += '\n```';
+
+  const numDoubleDollar = (processed.match(/\$\$/g) || []).length;
+  if (numDoubleDollar % 2 !== 0) processed += '\n$$';
+
+  const numOpenBracket = (processed.match(/\\\[/g) || []).length;
+  const numCloseBracket = (processed.match(/\\\]/g) || []).length;
+  if (numOpenBracket > numCloseBracket) processed += '\n\\]';
+
   // Convert ```math code blocks to standard $$ math blocks
   processed = processed.replace(/```math\n?([\s\S]*?)```/g, (match, p1) => `$$${p1}$$`);
 

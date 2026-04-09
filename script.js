@@ -1089,7 +1089,7 @@ function renderModelCarousel() {
       card.className = "model-card";
       if (tabId === state.activeTabId) card.classList.add("active");
       card.dataset.tabId = tabId;
-      card.dataset.providerId = p.id;
+      card.dataset.provider = p.id;
       card.dataset.modelId = modelId;
 
       card.innerHTML = `

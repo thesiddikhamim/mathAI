@@ -1305,8 +1305,11 @@ CANVAS RULES:
 1. \`ctx\` (CanvasRenderingContext2D, 800x600) is ready to use. Do not define it.
 2. Keep the background transparent. Do not draw a background fill.
 3. Use \`ctx.strokeStyle = '#000000'\` and \`ctx.fillStyle = '#000000'\` for all shapes, lines, and text.
-4. Set \`ctx.font = 'italic 20px KaTeX_Math, "Times New Roman", serif'\` to simulate LaTeX font rendering.
-5. Canvas Y-axis points DOWN. Center origin (0,0) by using \`ctx.translate(400, 300);\` and scale appropriately if graphing.`;
+4. For ANY math labels (fractions, symbols, exponents, etc.), use the provided helper: \`await drawLaTeX(ctx, String.raw\`\\frac{a}{b}\`, x, y, { fontSize: 22 });\`.
+   - IMPORTANT: Do NOT write LaTeX as a normal JS string like \`"\\times"\` or \`"\\frac{1}{2}"\` because JS treats \`\\t\` and \`\\f\` as escape sequences. Use \`String.raw\`...\`\` (preferred) or double-escape backslashes (\\\\times).
+   - Use \`ctx.textAlign\` / \`ctx.textBaseline\` for alignment (defaults are set for you).
+5. You may still use \`ctx.font = 'italic 20px KaTeX_Math, "Times New Roman", serif'\` + \`ctx.fillText()\` for plain text (like 'A', 'B', 'x-axis'), but NOT for LaTeX commands.
+6. Canvas Y-axis points DOWN. Center origin (0,0) by using \`ctx.translate(400, 300);\` and scale appropriately if graphing.`;
   }
   
   return prompt;
@@ -2366,33 +2369,23 @@ function renderMarkdown(raw, container) {
       const codeHash = hashStringDjb2(jsCode);
 
       if (jsCode && visStage.dataset.codeHash !== codeHash) {
-        try {
-          const canvas = document.createElement("canvas");
-          canvas.width = 800;
-          canvas.height = 600;
-          const ctx = canvas.getContext("2d");
+        // Render async so we can KaTeX-render labels into the canvas.
+        const renderJobId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+        visStage.dataset.renderJobId = renderJobId;
+        visStage.dataset.state = "loading";
+        visStage.dataset.codeHash = codeHash;
+        visStage.classList.remove("is-ready", "is-error");
+        visStage.classList.add("is-loading");
+        visStage.innerHTML = `
+            <div class="math-vis-loader" role="status" aria-live="polite">
+              <div class="math-vis-loader-label">Visualizing problem setup</div>
+              <div class="math-vis-loader-track" aria-hidden="true">
+                <div class="math-vis-loader-indicator"></div>
+              </div>
+            </div>
+        `;
 
-          // Execute the AI's drawing code
-          const drawFn = new Function("ctx", jsCode);
-          drawFn(ctx);
-
-          const dataUrl = canvas.toDataURL("image/png");
-          visStage.dataset.state = "ready";
-          visStage.dataset.codeHash = codeHash;
-          visStage.classList.remove("is-loading", "is-error");
-          visStage.classList.add("is-ready");
-          visStage.innerHTML = `
-            <img class="math-vis-img" src="${dataUrl}" alt="Mathematical Problem Visualization" />
-          `;
-        } catch (err) {
-          console.error("Canvas execution error:", err);
-          visStage.dataset.state = "error";
-          visStage.classList.remove("is-loading", "is-ready");
-          visStage.classList.add("is-error");
-          visStage.innerHTML = `
-            <div class="math-vis-error">[Visualization Render Error: ${String(err?.message || err)}]</div>
-          `;
-        }
+        void renderMathVisToStage(visStage, jsCode, codeHash, renderJobId);
       }
     }
   }
@@ -2461,6 +2454,257 @@ function renderMarkdown(raw, container) {
         throwOnError: false,
       });
     }
+  }
+}
+
+async function renderMathVisToStage(visStage, jsCode, codeHash, renderJobId) {
+  const isJobCurrent = () =>
+    visStage &&
+    visStage.dataset &&
+    visStage.dataset.renderJobId === renderJobId &&
+    visStage.dataset.codeHash === codeHash;
+
+  const withTimeout = (promise, ms) =>
+    Promise.race([
+      promise,
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error("Visualization timed out")), ms),
+      ),
+    ]);
+
+  // Minimal KaTeX → image renderer with caching.
+  const renderLatexToSmallCanvas = (() => {
+    const cache = new Map();
+    let stageHost = null;
+    let warnedMissingHtml2Canvas = false;
+    const ensureHost = () => {
+      if (stageHost) return stageHost;
+      stageHost = document.createElement("div");
+      stageHost.setAttribute("data-mathvis-katex-host", "");
+      stageHost.style.cssText =
+        "position:fixed;left:-10000px;top:-10000px;" +
+        "pointer-events:none;opacity:0;" +
+        "background:transparent;";
+      document.body.appendChild(stageHost);
+      return stageHost;
+    };
+
+    return async (latex, opts = {}) => {
+      const fontSize = Number(opts.fontSize || 22);
+      const color = String(opts.color || "#000000");
+      const displayMode = Boolean(opts.displayMode);
+      const scale = Number(opts.scale || 2);
+
+      const key = `${latex}|${fontSize}|${color}|${displayMode}|${scale}`;
+      const cached = cache.get(key);
+      if (cached) return cached;
+
+      if (typeof katex === "undefined") {
+        throw new Error("KaTeX is not loaded");
+      }
+      if (typeof html2canvas === "undefined") {
+        // Degrade gracefully (drawLaTeX will fall back to ctx.fillText).
+        if (!warnedMissingHtml2Canvas) {
+          warnedMissingHtml2Canvas = true;
+          try {
+            showToast("⚠️ Visualization math needs html2canvas (network blocked?)");
+          } catch {
+            // ignore
+          }
+        }
+        return null;
+      }
+
+      const host = ensureHost();
+      const span = document.createElement("span");
+      span.style.cssText =
+        `font-size:${fontSize}px;line-height:1;` +
+        `color:${color};background:transparent;` +
+        "display:inline-block;white-space:nowrap;";
+
+      katex.render(latex, span, {
+        throwOnError: false,
+        strict: false,
+        displayMode,
+      });
+
+      host.appendChild(span);
+
+      // Ensure fonts are ready before snapshot.
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch {
+          // ignore
+        }
+      }
+
+      const smallCanvas = await html2canvas(span, {
+        backgroundColor: null,
+        scale,
+        useCORS: true,
+        logging: false,
+      });
+
+      span.remove();
+      cache.set(key, smallCanvas);
+      return smallCanvas;
+    };
+  })();
+
+  const drawLaTeX = async (ctx, latex, x, y, opts = {}) => {
+    const smallCanvas = await renderLatexToSmallCanvas(String(latex), opts);
+    if (!smallCanvas) {
+      // Fallback: best-effort plain text if html2canvas is missing.
+      // This won't render fractions, but avoids hard errors.
+      const raw = String(latex ?? "");
+      const text = raw.replace(/\s+/g, " ").trim();
+      ctx.save();
+      const fontSize = Number(opts.fontSize || extractFontSize(ctx.font) || 22);
+      ctx.font = `italic ${fontSize}px KaTeX_Math, "Times New Roman", serif`;
+      ctx.fillStyle = String(opts.color || ctx.fillStyle || "#000000");
+      if (opts.align) ctx.textAlign = String(opts.align);
+      if (opts.baseline) ctx.textBaseline = String(opts.baseline);
+      ctx.fillText(text, x, y);
+      ctx.restore();
+      return;
+    }
+    const scale = Number(opts.scale || 2);
+    const w = smallCanvas.width / scale;
+    const h = smallCanvas.height / scale;
+
+    const align = String(opts.align || ctx.textAlign || "center");
+    const baseline = String(opts.baseline || ctx.textBaseline || "middle");
+
+    let dx = x;
+    if (align === "center") dx = x - w / 2;
+    else if (align === "right" || align === "end") dx = x - w;
+
+    let dy = y;
+    if (baseline === "middle") dy = y - h / 2;
+    else if (baseline === "bottom" || baseline === "ideographic") dy = y - h;
+    else if (baseline === "alphabetic") dy = y - h * 0.8;
+
+    ctx.drawImage(smallCanvas, dx, dy, w, h);
+  };
+
+  const stripLatexDelimiters = (s) => {
+    const str = String(s ?? "").trim();
+    if (str.startsWith("$$") && str.endsWith("$$") && str.length >= 4) {
+      return str.slice(2, -2).trim();
+    }
+    if (str.startsWith("$") && str.endsWith("$") && str.length >= 2) {
+      return str.slice(1, -1).trim();
+    }
+    if (str.startsWith("\\(") && str.endsWith("\\)") && str.length >= 4) {
+      return str.slice(2, -2).trim();
+    }
+    if (str.startsWith("\\[") && str.endsWith("\\]") && str.length >= 4) {
+      return str.slice(2, -2).trim();
+    }
+    return str;
+  };
+
+  const recoverJsEscapesToLatex = (s) => {
+    // If the model writes "\times" or "\theta" as a JS string,
+    // JS interprets \t as a TAB, \f as form-feed, etc.
+    // Convert those control characters back into LaTeX command prefixes.
+    return String(s ?? "")
+      .replace(/\t/g, "\\t")
+      .replace(/\n/g, "\\n")
+      .replace(/\r/g, "\\r")
+      .replace(/\f/g, "\\f")
+      .replace(/\v/g, "\\v")
+      .replace(/\x08/g, "\\b");
+  };
+
+  const looksLikeLatex = (s) => {
+    const str = String(s ?? "");
+    if (!str) return false;
+    if (/[\\^_{}]/.test(str)) return true;
+    if (/\$\$|\$/.test(str)) return true;
+    // JS-escape artifacts for common LaTeX commands (\t, \f, etc.)
+    if (/[\t\n\r\f\v\b]/.test(str)) return true;
+    return false;
+  };
+
+  const extractFontSize = (font) => {
+    const m = String(font || "").match(/(\d+(?:\.\d+)?)px/);
+    return m ? Number(m[1]) : 22;
+  };
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 600;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("Canvas 2D context not available");
+
+    // Provide more predictable defaults for label placement.
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+
+    // Backwards-compatible: if the AI uses ctx.fillText() with LaTeX-like strings,
+    // capture them and render via KaTeX instead of drawing literal escape garbage.
+    const pendingLatexLabels = [];
+    const origFillText = ctx.fillText.bind(ctx);
+    ctx.fillText = function (text, x, y, maxWidth) {
+      if (looksLikeLatex(text)) {
+        pendingLatexLabels.push({
+          text,
+          x,
+          y,
+          maxWidth,
+          align: ctx.textAlign,
+          baseline: ctx.textBaseline,
+          fontSize: extractFontSize(ctx.font),
+          color: typeof ctx.fillStyle === "string" ? ctx.fillStyle : "#000000",
+        });
+        return;
+      }
+      return maxWidth != null
+        ? origFillText(text, x, y, maxWidth)
+        : origFillText(text, x, y);
+    };
+
+    // Execute the AI's drawing code as async so it can await drawLaTeX.
+    const wrapped = `"use strict";\nreturn (async () => {\n${jsCode}\n})();`;
+    const drawFn = new Function("ctx", "drawLaTeX", wrapped);
+
+    await withTimeout(drawFn(ctx, drawLaTeX), 12000);
+
+    // Render any captured LaTeX labels (sequentially to avoid thrashing html2canvas).
+    for (const item of pendingLatexLabels) {
+      const recovered = recoverJsEscapesToLatex(item.text);
+      const latex = stripLatexDelimiters(recovered);
+      if (!latex) continue;
+      await drawLaTeX(ctx, latex, item.x, item.y, {
+        fontSize: item.fontSize,
+        color: item.color,
+        align: item.align,
+        baseline: item.baseline,
+        displayMode: false,
+      });
+    }
+
+    const dataUrl = canvas.toDataURL("image/png");
+    if (!isJobCurrent()) return;
+
+    visStage.dataset.state = "ready";
+    visStage.classList.remove("is-loading", "is-error");
+    visStage.classList.add("is-ready");
+    visStage.innerHTML = `
+      <img class="math-vis-img" src="${dataUrl}" alt="Mathematical Problem Visualization" />
+    `;
+  } catch (err) {
+    console.error("Canvas execution error:", err);
+    if (!isJobCurrent()) return;
+    visStage.dataset.state = "error";
+    visStage.classList.remove("is-loading", "is-ready");
+    visStage.classList.add("is-error");
+    visStage.innerHTML = `
+      <div class="math-vis-error">[Visualization Render Error: ${String(err?.message || err)}]</div>
+    `;
   }
 }
 

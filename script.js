@@ -34,6 +34,7 @@ const el = {
   enableVisualization: $("enableVisualization"),
   visModelsWrapper: $("visModelsWrapper"),
   visModelsContainer: $("visModelsContainer"),
+  visEnabledModelsContainer: $("visEnabledModelsContainer"),
 
   apiKeyInput: $("apiKeyInput"),
   toggleKeyVis: $("toggleKeyVisibility"),
@@ -149,6 +150,7 @@ const state = {
   },
   enableVisualization: false,
   visModelConfig: "ollama:qwen3.5:cloud",
+  visEnabledModels: ["gemini:gemini-3.1-pro-preview", "ollama:qwen3.5:cloud"],
   // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
   activeTabId: "gemini:gemini-3.1-pro-preview",
   chatHistory: [],
@@ -351,7 +353,7 @@ function renderSettingsModels() {
     cb.addEventListener("change", e => {
       state.enabledProviders[e.target.dataset.provider] = e.target.checked;
       renderSettingsModels(); // re-render to show/hide models
-      renderVisModels(); // re-render visualization models list
+      renderVisModels(); renderVisEnabledModels(); // re-render visualization models list
     });
   });
 
@@ -365,6 +367,73 @@ function renderSettingsModels() {
         }
       } else {
         state.selectedModels[p] = state.selectedModels[p].filter(x => x !== val);
+      }
+    });
+  });
+}
+
+
+function renderVisEnabledModels() {
+  if (!el.visEnabledModelsContainer) return;
+  el.visEnabledModelsContainer.innerHTML = "";
+  
+  const providers = [
+    { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
+    { id: "ollama", name: "Ollama Cloud", icon: "ollama.svg" },
+    { id: "mistral", name: "Mistral AI", icon: "mistral.svg" },
+    { id: "groq", name: "Groq", icon: "groq.svg" }
+  ];
+
+  providers.forEach((p) => {
+    const isEnabled = state.enabledProviders[p.id];
+    const selected = state.selectedModels[p.id] || [];
+    
+    if (isEnabled && selected.length > 0 && AVAILABLE_MODELS[p.id]) {
+      const group = document.createElement("div");
+      group.className = "vis-provider-group";
+      group.style.marginBottom = "20px";
+      
+      const header = document.createElement("div");
+      header.className = "provider-header-left";
+      header.style.marginBottom = "10px";
+      header.innerHTML = `
+        <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="provider-logo" alt="${p.name}" style="width: 18px; height: 18px;" />
+        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">${p.name}</span>
+      `;
+      group.appendChild(header);
+      
+      const grid = document.createElement("div");
+      grid.className = "models-grid";
+      
+      selected.forEach(modelId => {
+        const m = AVAILABLE_MODELS[p.id].find(x => x.id === modelId);
+        if (!m) return;
+        
+        const val = p.id + ":" + m.id;
+        const isSelected = state.visEnabledModels.includes(val);
+        
+        const lbl = document.createElement("label");
+        lbl.className = "model-checkbox-label";
+        
+        lbl.innerHTML = `
+          <input type="checkbox" class="vis-model-checkbox" value="${val}" ${isSelected ? "checked" : ""}>
+          ${m.label}
+        `;
+        grid.appendChild(lbl);
+      });
+      
+      group.appendChild(grid);
+      el.visEnabledModelsContainer.appendChild(group);
+    }
+  });
+
+  el.visEnabledModelsContainer.querySelectorAll(".vis-model-checkbox").forEach(cb => {
+    cb.addEventListener("change", e => {
+      const val = e.target.value;
+      if (e.target.checked) {
+        if (!state.visEnabledModels.includes(val)) state.visEnabledModels.push(val);
+      } else {
+        state.visEnabledModels = state.visEnabledModels.filter(x => x !== val);
       }
     });
   });
@@ -444,7 +513,7 @@ function openSettings() {
     }
   }
   
-  renderVisModels();
+  renderVisModels(); renderVisEnabledModels();
   
   renderSettingsModels();
   
@@ -563,6 +632,7 @@ el.saveKey.addEventListener("click", () => {
   
   if (state.visModelConfig) {
     localStorage.setItem("mathai-vis-model", state.visModelConfig);
+    localStorage.setItem("mathai-vis-enabled", JSON.stringify(state.visEnabledModels));
   }
 
   localStorage.setItem("mathai-enabled-providers", JSON.stringify(state.enabledProviders));
@@ -597,7 +667,7 @@ el.clearKey.addEventListener("click", () => {
   if (el.enableVisualization) el.enableVisualization.checked = false;
   
   renderSettingsModels();
-  renderVisModels();
+  renderVisModels(); renderVisEnabledModels();
   
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
@@ -628,6 +698,7 @@ function loadSettings() {
   const activeTabId = localStorage.getItem("mathai-active-tab-id");
   const enableVis = localStorage.getItem("mathai-enable-vis");
   const visMod = localStorage.getItem("mathai-vis-model");
+  const visEnList = localStorage.getItem("mathai-vis-enabled");
 
   if (k) state.apiKey = k;
   if (gk) state.groqApiKey = gk;
@@ -636,6 +707,11 @@ function loadSettings() {
   
   if (enableVis !== null) state.enableVisualization = enableVis === "true";
   if (visMod) state.visModelConfig = visMod;
+  if (visEnList) {
+    try {
+      state.visEnabledModels = JSON.parse(visEnList);
+    } catch(e) {}
+  }
 
   try {
     if (ep) {
@@ -3023,6 +3099,9 @@ async function renderVisualization(aiText, wrapper) {
   if (!state.enableVisualization) return;
   if (!state.visModelConfig) return;
 
+  // Check if visualization is enabled for the current chat model
+  if (!state.visEnabledModels.includes(state.activeTabId)) return;
+
   const [visProvider, visModel] = state.visModelConfig.split(":");
   const providerKey = {
     gemini: state.apiKey,
@@ -3056,10 +3135,10 @@ Your task is to write a Python script using Matplotlib to visualize the ORIGINAL
 Rules:
 1. ONLY output valid Python code strictly enclosed in a \`\`\`python ... \`\`\` block. DO NOT use external libraries other than math, numpy, and matplotlib. No conversational text whatsoever.
 2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
-3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). ALL text and labels MUST be pure black ('#000000') and formatted as Computer Modern Italic math font using Matplotlib's native MathText (e.g. write $h-4$, $\\times$, $\\theta$, etc).
+3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). ALL text and labels MUST be pure black ('#000000'). Set the font to Times New Roman and make styling italic for variable names. Example: \`plt.rcParams['font.family'] = 'Times New Roman'\` and \`plt.rcParams['mathtext.fontset'] = 'custom'\`. Use standard italic variables where appropriate like $\mathit{h-4}$.
 4. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
    - ALL strokes, edges, borders, and standalone lines MUST ALWAYS be pure black ('#000000') with a smooth, thick linewidth (e.g., linewidth=3.5).
-   - Use color palette to fill the areas (facecolor) of shapes or graph regions to distinguish them. not always where needed.
+   - Use different colors to fill the areas (facecolor) of shapes or graph regions so they can be easily distinguished. AI should choose beautiful, modern, better colors for filling. HOWEVER, only use fill or distinct colors WHERE APPLICABLE and NECESSARY to distinguish distinct elements. Do not over-color if unnecessary. 
    - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines in black and make them slightly faded.
    - Text labels should be large (fontsize=14+) and strictly pure black. Do NOT color the text.
 5. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().

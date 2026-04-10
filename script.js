@@ -146,6 +146,7 @@ const state = {
   activeTabId: "gemini:gemini-3.1-pro-preview",
   chatHistory: [],
   isSolved: false,
+  isUserScrolledUp: false, // Track if user scrolled up during streaming
   // Cache keyed by tab ID
   answerCache: {},
   // Track running operations keyed by tab ID
@@ -1337,7 +1338,7 @@ async function solveAllSelection() {
       }
       renderMarkdown(fullText, aiMsg);
       if (tabId === state.activeTabId) {
-        scrollToBottom();
+        scrollToBottom(false);
       }
     };
 
@@ -1532,7 +1533,7 @@ async function solveSelection(resetGlobalCache = false) {
       }
       renderMarkdown(fullText, aiMsg);
       if (currentTabId === state.activeTabId) {
-        scrollToBottom();
+        scrollToBottom(false);
       }
     };
 
@@ -1707,7 +1708,7 @@ async function sendFollowUp() {
       }
       renderMarkdown(fullText, aiMsg);
       if (currentTabId === state.activeTabId) {
-        scrollToBottom();
+        scrollToBottom(false);
       }
     };
 
@@ -2211,9 +2212,15 @@ function appendAIMessage(raw) {
   renderMarkdown(raw, aiMsg);
 }
 
-function scrollToBottom() {
-  el.solutionContent.parentElement.scrollTop =
-    el.solutionContent.parentElement.scrollHeight;
+function scrollToBottom(force = true) {
+  const parent = el.solutionContent.parentElement;
+  if (!parent) return;
+
+  if (!force && state.isUserScrolledUp) {
+    // User is manually scrolling up, do not force scroll down
+    return;
+  }
+  parent.scrollTop = parent.scrollHeight;
 }
 
 /**
@@ -2759,6 +2766,15 @@ function init() {
   loadSettings();
   setSolutionState("empty");
   disableOutputBtns();
+
+  if (el.solutionContent && el.solutionContent.parentElement) {
+    el.solutionContent.parentElement.addEventListener("scroll", () => {
+      const parent = el.solutionContent.parentElement;
+      // If we are within 60px of the bottom, consider it not scrolled up
+      state.isUserScrolledUp = (parent.scrollHeight - parent.scrollTop - parent.clientHeight) > 60;
+    }, { passive: true });
+  }
+
   console.info(
     "%cMathAI ready.\nCtrl+K = Settings | Ctrl+Enter = Solve | Esc = Clear",
     "font-weight:bold",

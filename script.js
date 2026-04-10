@@ -27,8 +27,12 @@ const el = {
   settingsClose: $("settingsClose"),
   tabApiKeys: $("tabApiKeys"),
   tabModels: $("tabModels"),
+  tabVisualization: $("tabVisualization"),
   apiKeysView: $("apiKeysView"),
   modelsView: $("modelsView"),
+  visualizationView: $("visualizationView"),
+  enableVisualization: $("enableVisualization"),
+  visModelSelect: $("visModelSelect"),
 
   apiKeyInput: $("apiKeyInput"),
   toggleKeyVis: $("toggleKeyVisibility"),
@@ -142,6 +146,8 @@ const state = {
     mistral: ["mistral-large-latest"],
     groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
   },
+  enableVisualization: false,
+  visModelConfig: "ollama:qwen3.5:cloud",
   // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
   activeTabId: "gemini:gemini-3.1-pro-preview",
   chatHistory: [],
@@ -344,6 +350,7 @@ function renderSettingsModels() {
     cb.addEventListener("change", e => {
       state.enabledProviders[e.target.dataset.provider] = e.target.checked;
       renderSettingsModels(); // re-render to show/hide models
+      renderVisModels(); // re-render visualization models list
     });
   });
 
@@ -362,11 +369,34 @@ function renderSettingsModels() {
   });
 }
 
+function renderVisModels() {
+  if (!el.visModelSelect) return;
+  el.visModelSelect.innerHTML = "";
+  Object.keys(AVAILABLE_MODELS).forEach(p => {
+    const isEnabled = state.enabledProviders[p];
+    if (isEnabled && AVAILABLE_MODELS[p]) {
+      const optgroup = document.createElement("optgroup");
+      optgroup.label = p.charAt(0).toUpperCase() + p.slice(1);
+      AVAILABLE_MODELS[p].forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = p + ":" + m.id;
+        opt.textContent = m.label;
+        if (opt.value === state.visModelConfig) opt.selected = true;
+        optgroup.appendChild(opt);
+      });
+      el.visModelSelect.appendChild(optgroup);
+    }
+  });
+}
+
 function openSettings() {
   el.apiKeyInput.value = state.apiKey;
   el.groqApiKeyInput.value = state.groqApiKey;
   el.mistralApiKeyInput.value = state.mistralApiKey;
   el.ollamaApiKeyInput.value = state.ollamaApiKey;
+  
+  if (el.enableVisualization) el.enableVisualization.checked = state.enableVisualization;
+  renderVisModels();
   
   renderSettingsModels();
   
@@ -378,22 +408,49 @@ function closeSettings() {
   el.settingsOv.classList.add("hidden");
 }
 
-el.tabApiKeys.addEventListener("click", () => {
-  el.tabApiKeys.classList.add("active");
-  el.tabModels.classList.remove("active");
-  el.apiKeysView.classList.add("active");
-  el.apiKeysView.classList.remove("hidden");
-  el.modelsView.classList.remove("active");
-  el.modelsView.classList.add("hidden");
-});
-
 el.tabModels.addEventListener("click", () => {
   el.tabModels.classList.add("active");
+  el.tabVisualization.classList.remove("active");
   el.tabApiKeys.classList.remove("active");
+  
   el.modelsView.classList.add("active");
   el.modelsView.classList.remove("hidden");
+  
+  el.visualizationView.classList.remove("active");
+  el.visualizationView.classList.add("hidden");
+  
   el.apiKeysView.classList.remove("active");
   el.apiKeysView.classList.add("hidden");
+});
+
+el.tabVisualization.addEventListener("click", () => {
+  el.tabVisualization.classList.add("active");
+  el.tabModels.classList.remove("active");
+  el.tabApiKeys.classList.remove("active");
+  
+  el.visualizationView.classList.add("active");
+  el.visualizationView.classList.remove("hidden");
+  
+  el.modelsView.classList.remove("active");
+  el.modelsView.classList.add("hidden");
+  
+  el.apiKeysView.classList.remove("active");
+  el.apiKeysView.classList.add("hidden");
+});
+
+el.tabApiKeys.addEventListener("click", () => {
+  el.tabApiKeys.classList.add("active");
+  el.tabVisualization.classList.remove("active");
+  el.tabModels.classList.remove("active");
+  
+  el.apiKeysView.classList.add("active");
+  el.apiKeysView.classList.remove("hidden");
+  
+  el.visualizationView.classList.remove("active");
+  el.visualizationView.classList.add("hidden");
+  
+  el.modelsView.classList.remove("active");
+  el.modelsView.classList.add("hidden");
 });
 
 el.settingsBtn.addEventListener("click", openSettings);
@@ -441,6 +498,14 @@ el.saveKey.addEventListener("click", () => {
   if (ollaKey) localStorage.setItem("mathai-ollama-apikey", ollaKey);
   else localStorage.removeItem("mathai-ollama-apikey");
 
+  state.enableVisualization = el.enableVisualization ? el.enableVisualization.checked : false;
+  localStorage.setItem("mathai-enable-vis", state.enableVisualization);
+  
+  if (el.visModelSelect && el.visModelSelect.value) {
+    state.visModelConfig = el.visModelSelect.value;
+    localStorage.setItem("mathai-vis-model", state.visModelConfig);
+  }
+
   localStorage.setItem("mathai-enabled-providers", JSON.stringify(state.enabledProviders));
   localStorage.setItem("mathai-selected-models", JSON.stringify(state.selectedModels));
 
@@ -468,11 +533,18 @@ el.clearKey.addEventListener("click", () => {
     groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
   };
   
+  state.enableVisualization = false;
+  state.visModelConfig = "ollama:qwen3.5:cloud";
+  if (el.enableVisualization) el.enableVisualization.checked = false;
+  if (el.visModelSelect) el.visModelSelect.value = state.visModelConfig;
+  
   renderSettingsModels();
+  renderVisModels();
   
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
-    "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id"
+    "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id",
+    "mathai-enable-vis", "mathai-vis-model"
   ];
   keys.forEach(k => localStorage.removeItem(k));
   
@@ -496,11 +568,16 @@ function loadSettings() {
   const ep = localStorage.getItem("mathai-enabled-providers");
   const sm = localStorage.getItem("mathai-selected-models");
   const activeTabId = localStorage.getItem("mathai-active-tab-id");
+  const enableVis = localStorage.getItem("mathai-enable-vis");
+  const visMod = localStorage.getItem("mathai-vis-model");
 
   if (k) state.apiKey = k;
   if (gk) state.groqApiKey = gk;
   if (mk) state.mistralApiKey = mk;
   if (ok) state.ollamaApiKey = ok;
+  
+  if (enableVis !== null) state.enableVisualization = enableVis === "true";
+  if (visMod) state.visModelConfig = visMod;
 
   try {
     if (ep) {
@@ -1394,6 +1471,14 @@ async function solveAllSelection() {
         ];
       }
 
+      if (state.enableVisualization && response.trim().length > 0) {
+        try {
+          await renderVisualization(response, wrapper);
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
       state.runningJobs[tabId] = false;
       state.answerCache[tabId] = {
         rawResponse: response,
@@ -1585,6 +1670,14 @@ async function solveSelection(resetGlobalCache = false) {
       ];
     }
 
+    if (state.enableVisualization && response.trim().length > 0) {
+      try {
+        await renderVisualization(response, wrapper);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     state.runningJobs[currentTabId] = false;
 
     if (thinkingIndicator && thinkingIndicator.parentNode)
@@ -1748,6 +1841,14 @@ async function sendFollowUp() {
         onChunk,
       );
       state.chatHistory.push({ role: "assistant", content: response });
+    }
+
+    if (state.enableVisualization && response.trim().length > 0) {
+      try {
+        await renderVisualization(response, wrapper);
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     state.rawResponse += "\n\n" + response;
@@ -2785,4 +2886,150 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => waitForKaTeX(init));
 } else {
   waitForKaTeX(init);
+}
+/* =========================================================
+   PYODIDE - AI Visualization
+   ========================================================= */
+
+let pyodideLoader = null;
+async function initPyodide() {
+  if (window.pyodide) return window.pyodide;
+  if (!pyodideLoader) {
+    pyodideLoader = loadPyodide({
+      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/"
+    }).then(async py => {
+      await py.loadPackage(['matplotlib', 'numpy']);
+      return py;
+    });
+  }
+  window.pyodide = await pyodideLoader;
+  return window.pyodide;
+}
+
+async function renderVisualization(aiText, wrapper) {
+  if (!state.enableVisualization) return;
+  if (!state.visModelConfig) return;
+
+  const [visProvider, visModel] = state.visModelConfig.split(":");
+  const providerKey = {
+    gemini: state.apiKey,
+    groq: state.groqApiKey,
+    mistral: state.mistralApiKey,
+    ollama: state.ollamaApiKey,
+  }[visProvider];
+
+  if (!providerKey) {
+    console.warn("Skipping visualization: Missing API key for " + visProvider);
+    return;
+  }
+
+  // Add loading UI
+  const visContainer = document.createElement("div");
+  visContainer.className = "vis-container";
+  visContainer.innerHTML = `
+    <div style="margin-top: 1.5rem; padding: 1rem; border: 1px dashed var(--border); border-radius: var(--radius-md); text-align: center; color: var(--text-secondary); background: var(--bg-tertiary);">
+      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; width: 20px; height: 20px; vertical-align: -5px; margin-right: 8px;">
+        <path d="M21 12a9 9 0 11-6.219-8.56"></path>
+      </svg>
+      <span style="font-size: 14px; font-weight: 500;">Generating visualization script via ${visModel}...</span>
+    </div>
+  `;
+  wrapper.appendChild(visContainer);
+  scrollToBottom(true);
+
+  const visPrompt = `You are an expert Python data visualization coder. I am providing you with the step-by-step solution to a math problem.
+Your task is to write a Python script using Matplotlib to visualize the ORIGINAL QUESTION and the INITIAL SETUP (e.g., shapes, angles, graphs, and the assigned variables like 'h' and 'h-4'). Do NOT visualize the final answer or the solving process—focus on illustrating the problem and how the variables are initially defined.
+
+Rules:
+1. ONLY output valid Python code enclosed in a \`\`\`python ... \`\`\` block. No text outside it.
+2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
+3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). Uses Matplotlib's native MathText for all math formatting (e.g. write $h-4$, $\\times$, $\\theta$, etc).
+4. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().
+
+Problem Breakdown Context:
+${aiText}
+`;
+
+  let visCodeText = "";
+  try {
+    const noop = () => {};
+    if (visProvider === "gemini") {
+      const chatHist = [{ role: "user", parts: [{ text: visPrompt }] }];
+      visCodeText = await callGeminiChat(chatHist, providerKey, visModel, noop);
+    } else if (visProvider === "groq") {
+      visCodeText = await callGroqFollowUp([{ role: "user", content: visPrompt }], providerKey, visModel, noop);
+    } else if (visProvider === "mistral") {
+      visCodeText = await callMistralFollowUp([{ role: "user", content: visPrompt }], providerKey, visModel, noop);
+    } else if (visProvider === "ollama") {
+      visCodeText = await callOllamaFollowUp([{ role: "user", content: visPrompt }], providerKey, visModel, noop);
+    }
+    
+    // Extract Python code
+    let pythonCode = "";
+    const pyRegex = /\`\`\`[pP]ython\s*([\s\S]*?)\`\`\`/;
+    const match = pyRegex.exec(visCodeText);
+    if (match) {
+      pythonCode = match[1].trim();
+    } else {
+      pythonCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
+    }
+
+    if (!pythonCode || pythonCode.length < 10) {
+       throw new Error("Invalid Python code generated.");
+    }
+
+    visContainer.innerHTML = `
+      <div style="margin-top: 1.5rem; padding: 1rem; border: 1px dashed var(--border); border-radius: var(--radius-md); text-align: center; color: var(--text-secondary); background: var(--bg-tertiary);">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; width: 20px; height: 20px; vertical-align: -5px; margin-right: 8px;">
+          <path d="M21 12a9 9 0 11-6.219-8.56"></path>
+        </svg>
+        <span style="font-size: 14px; font-weight: 500;">Running Python in Pyodide...</span>
+      </div>
+    `;
+    scrollToBottom(true);
+
+    // Execute via Pyodide
+    const py = await initPyodide();
+    await py.runPythonAsync(`
+import os
+os.environ['MPLBACKEND'] = 'AGG'
+import matplotlib.pyplot as plt
+plt.rcParams['mathtext.fontset'] = 'cm'
+plt.rcParams['font.family'] = 'serif'
+plt.close('all')
+
+${pythonCode}
+
+if not os.path.exists('output.png'):
+    plt.savefig('output.png', transparent=True, bbox_inches='tight')
+`);
+    
+    // Check if generated
+    if (py.FS.analyzePath('output.png').exists) {
+      const imgData = py.FS.readFile('output.png');
+      const blob = new Blob([imgData], { type: 'image/png' });
+      const blobUrl = URL.createObjectURL(blob);
+      
+      visContainer.innerHTML = `
+        <div style="margin-top: 1.5rem; text-align: center;">
+          <img src="${blobUrl}" alt="Mathematical Visualization" style="max-width: 100%; height: auto; border-radius: var(--radius-sm); filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));" />
+        </div>
+      `;
+      scrollToBottom(true);
+      // Clean up for next run
+      py.FS.unlink('output.png');
+    } else {
+      throw new Error("Code ran but did not yield output.png");
+    }
+
+  } catch (err) {
+    console.error("Visualization error:", err);
+    visContainer.innerHTML = `
+      <div style="margin-top: 1.5rem; padding: 0.75rem; border: 1px solid var(--danger); border-radius: var(--radius-sm); color: var(--danger); font-size: 13px; background: rgba(239, 68, 68, 0.05);">
+        Visualization generation failed.<br>
+        <span style="opacity: 0.8; font-size:11px;">$&#123;err.message.split("\\n")[0]&#125;</span>
+      </div>
+    `;
+    scrollToBottom(true);
+  }
 }

@@ -41,6 +41,9 @@
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
+    <!-- Pyodide -->
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
@@ -143,11 +146,33 @@
         <div class="settings-body">
           <div class="settings-tabs">
             <button id="tabModels" class="settings-tab active">Model Selection</button>
+            <button id="tabVisualization" class="settings-tab">Visualization</button>
             <button id="tabApiKeys" class="settings-tab">API Keys</button>
           </div>
 
           <div id="modelsView" class="settings-view active">
             <!-- Dynamic Models UI will be injected here via JS -->
+          </div>
+
+          <div id="visualizationView" class="settings-view hidden">
+            <div class="settings-section">
+              <label class="settings-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                <input type="checkbox" id="enableVisualization" style="width: 16px; height: 16px;" />
+                Enable AI Visualization (Pyodide)
+              </label>
+              <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">
+                Uses a coding model to write Python Matplotlib code, running locally in your browser via WebAssembly to generate a transparent image of the math problem.
+              </p>
+            </div>
+            
+            <div class="settings-section">
+              <label class="settings-label" for="visModelSelect">
+                Coding Model for Visualization
+              </label>
+              <select id="visModelSelect" class="text-input" style="width: 100%; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary); margin-top: 6px;">
+                <!-- Populated via JS -->
+              </select>
+            </div>
           </div>
 
           <div id="apiKeysView" class="settings-view hidden">

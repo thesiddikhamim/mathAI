@@ -2999,14 +2999,14 @@ async function renderVisualization(aiText, wrapper) {
 Your task is to write a Python script using Matplotlib to visualize the ORIGINAL QUESTION and the INITIAL SETUP (e.g., shapes, angles, graphs, and the assigned variables like 'h' and 'h-4'). Do NOT visualize the final answer or the solving process—focus on illustrating the problem and how the variables are initially defined.
 
 Rules:
-1. ONLY output valid Python code enclosed in a \`\`\`python ... \`\`\` block. No text outside it.
+1. ONLY output valid Python code strictly enclosed in a \`\`\`python ... \`\`\` block. DO NOT use external libraries other than math, numpy, and matplotlib. No conversational text whatsoever.
 2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
-3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). Uses Matplotlib's native MathText italic font for all math formatting (e.g. write $h-4$, $\\times$, $\\theta$, etc).
-4. USE THE 3BLUE1BROWN (Manim) AESTHETIC:
-   - Use vibrant Manim colors: TEAL ('#5cd0d2'), BLUE ('#58c4dd'), YELLOW ('#ffff00'), RED ('#fc6255'), PURPLE ('#9a72ac'), GREEN ('#83c167').
+3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). ALL text and labels MUST be pure black ('#000000') and formatted as Computer Modern Italic math font using Matplotlib's native MathText (e.g. write $h-4$, $\\times$, $\\theta$, etc).
+4. USE THE 3BLUE1BROWN (Manim) AESTHETIC FOR VISUALS:
+   - Use vibrant Manim colors ONLY for lines, shapes, and geometries to distinguish them: TEAL ('#5cd0d2'), BLUE ('#58c4dd'), YELLOW ('#ffff00'), RED ('#fc6255'), PURPLE ('#9a72ac'), GREEN ('#83c167').
    - Make lines smooth and thick (e.g., linewidth=4).
    - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines and make them slightly faded.
-   - Text labels should be large (fontsize=14+) and match the color of the geometrical element they describe.
+   - Text labels should be large (fontsize=14+) and strictly pure black. Do NOT color the text.
 5. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().
 
 Problem Breakdown Context:
@@ -3029,16 +3029,23 @@ ${aiText}
     
     // Extract Python code
     let pythonCode = "";
-    const pyRegex = /\`\`\`[pP]ython\s*([\s\S]*?)\`\`\`/;
+    // Match any markdown code block, optional language tag
+    const pyRegex = /\`\`\`(?:[a-zA-Z]*)\n([\s\S]*?)\`\`\`/;
     const match = pyRegex.exec(visCodeText);
-    if (match) {
+    if (match && match[1].trim().length > 0) {
       pythonCode = match[1].trim();
     } else {
-      pythonCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
+      // Fallback if no code formatting used
+      const startIdx = visCodeText.indexOf("import ");
+      if (startIdx !== -1) {
+          pythonCode = visCodeText.substring(startIdx).replace(/\`\`\`/g, "").trim();
+      } else {
+          pythonCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
+      }
     }
 
     if (!pythonCode || pythonCode.length < 10) {
-       throw new Error("Invalid Python code generated.");
+       throw new Error("The AI model failed to produce valid Python code. Please try again.");
     }
 
     visContainer.innerHTML = `
@@ -3053,18 +3060,32 @@ ${aiText}
 
     // Execute via Pyodide
     const py = await initPyodide();
+    
+    // Clear out any old output to avoid showing previous plots if an error occurs
+    if (py.FS.analyzePath('output.png').exists) {
+      py.FS.unlink('output.png');
+    }
+
     await py.runPythonAsync(`
 import os
 os.environ['MPLBACKEND'] = 'AGG'
 import matplotlib.pyplot as plt
+import numpy as np
+import math
+
+plt.show = lambda *args, **kwargs: None
 plt.rcParams['mathtext.fontset'] = 'cm'
 plt.rcParams['font.family'] = 'serif'
 plt.close('all')
 
 ${pythonCode}
 
+# Always attempt to save even if the user script forgot the savefig command
 if not os.path.exists('output.png'):
-    plt.savefig('output.png', transparent=True, bbox_inches='tight')
+    try:
+        plt.savefig('output.png', transparent=True, bbox_inches='tight')
+    except Exception:
+        plt.savefig('output.png', transparent=True)
 `);
     
     // Check if generated
@@ -3087,10 +3108,11 @@ if not os.path.exists('output.png'):
 
   } catch (err) {
     console.error("Visualization error:", err);
+    let shortErr = err && err.message ? err.message.split("\\n")[0] : "Unknown error";
     visContainer.innerHTML = `
       <div style="margin-top: 1.5rem; padding: 0.75rem; border: 1px solid var(--danger); border-radius: var(--radius-sm); color: var(--danger); font-size: 13px; background: rgba(239, 68, 68, 0.05);">
         Visualization generation failed.<br>
-        <span style="opacity: 0.8; font-size:11px;">$&#123;err.message.split("\\n")[0]&#125;</span>
+        <span style="opacity: 0.8; font-size:11px;">${shortErr.replace(/</g, "&lt;")}</span>
       </div>
     `;
     scrollToBottom(true);

@@ -3002,7 +3002,12 @@ Rules:
 1. ONLY output valid Python code enclosed in a \`\`\`python ... \`\`\` block. No text outside it.
 2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
 3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). Uses Matplotlib's native MathText for all math formatting (e.g. write $h-4$, $\\times$, $\\theta$, etc).
-4. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().
+4. USE THE 3BLUE1BROWN (Manim) AESTHETIC:
+   - Use vibrant Manim colors: TEAL ('#5cd0d2'), BLUE ('#58c4dd'), YELLOW ('#ffff00'), RED ('#fc6255'), PURPLE ('#9a72ac'), GREEN ('#83c167').
+   - Make lines smooth and thick (e.g., linewidth=4).
+   - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines and make them slightly faded.
+   - Text labels should be large (fontsize=14+) and match the color of the geometrical element they describe.
+5. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().
 
 Problem Breakdown Context:
 ${aiText}

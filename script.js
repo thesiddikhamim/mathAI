@@ -2949,19 +2949,74 @@ if (document.readyState === "loading") {
    PYODIDE - AI Visualization
    ========================================================= */
 
-let pyodideLoader = null;
-async function initPyodide() {
-  if (window.pyodide) return window.pyodide;
-  if (!pyodideLoader) {
-    pyodideLoader = loadPyodide({
-      indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/"
-    }).then(async py => {
+let pyodideWorker = null;
+
+function getPyodideWorker() {
+  if (pyodideWorker) return pyodideWorker;
+  
+  const workerCode = `
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js");
+
+let pyInit = null;
+async function getPy() {
+  if (!pyInit) {
+    pyInit = loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/" }).then(async py => {
       await py.loadPackage(['matplotlib', 'numpy']);
       return py;
     });
   }
-  window.pyodide = await pyodideLoader;
-  return window.pyodide;
+  return await pyInit;
+}
+
+self.onmessage = async (e) => {
+  const { id, code } = e.data;
+  try {
+    const py = await getPy();
+    
+    // Clear out any old output
+    if (py.FS.analyzePath('output.png').exists) {
+      py.FS.unlink('output.png');
+    }
+
+    await py.runPythonAsync(code);
+    
+    if (py.FS.analyzePath('output.png').exists) {
+      const imgData = py.FS.readFile('output.png');
+      const uint8 = new Uint8Array(imgData);
+      py.FS.unlink('output.png');
+      self.postMessage({ id, success: true, imgData: uint8 }, [uint8.buffer]);
+    } else {
+      self.postMessage({ id, success: false, error: "Code ran but did not yield output.png" });
+    }
+  } catch (err) {
+    self.postMessage({ id, success: false, error: err.message });
+  }
+};
+  `;
+  
+  const blob = new Blob([workerCode], { type: 'application/javascript' });
+  pyodideWorker = new Worker(URL.createObjectURL(blob));
+  return pyodideWorker;
+}
+
+function runPythonInWorker(code) {
+  return new Promise((resolve, reject) => {
+    const worker = getPyodideWorker();
+    const id = Date.now() + Math.random().toString();
+    
+    const handler = (e) => {
+      if (e.data.id === id) {
+        worker.removeEventListener('message', handler);
+        if (e.data.success) {
+          resolve(e.data.imgData);
+        } else {
+          reject(new Error(e.data.error));
+        }
+      }
+    };
+    worker.addEventListener('message', handler);
+    worker.postMessage({ id, code });
+  });
 }
 
 async function renderVisualization(aiText, wrapper) {
@@ -3002,10 +3057,10 @@ Rules:
 1. ONLY output valid Python code strictly enclosed in a \`\`\`python ... \`\`\` block. DO NOT use external libraries other than math, numpy, and matplotlib. No conversational text whatsoever.
 2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
 3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). ALL text and labels MUST be pure black ('#000000') and formatted as Computer Modern Italic math font using Matplotlib's native MathText (e.g. write $h-4$, $\\times$, $\\theta$, etc).
-4. USE THE 3BLUE1BROWN (Manim) AESTHETIC FOR VISUALS:
-   - Use vibrant Manim colors ONLY for lines, shapes, and geometries to distinguish them: TEAL ('#5cd0d2'), BLUE ('#58c4dd'), YELLOW ('#ffff00'), RED ('#fc6255'), PURPLE ('#9a72ac'), GREEN ('#83c167').
-   - Make lines smooth and thick (e.g., linewidth=4).
-   - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines and make them slightly faded.
+4. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
+   - ALL strokes, edges, borders, and standalone lines MUST ALWAYS be pure black ('#000000') with a smooth, thick linewidth (e.g., linewidth=3.5).
+   - Use this exact color palette sequentially to fill the areas (facecolor) of shapes or graph regions to distinguish them: 1st item gets TEAL ('#5cd0d2'), 2nd item gets RED ('#fc6255') , 3rd item gets YELLOW ('#ffff00'), 4th item gets BLUE ('#cf3fd7'), 5th item gets PURPLE ('#9a72ac'), 6th item gets GREEN ('#83c167'). Do not randomize colors.
+   - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines in black and make them slightly faded.
    - Text labels should be large (fontsize=14+) and strictly pure black. Do NOT color the text.
 5. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().
 
@@ -3057,16 +3112,11 @@ ${aiText}
       </div>
     `;
     scrollToBottom(true);
-
-    // Execute via Pyodide
-    const py = await initPyodide();
     
-    // Clear out any old output to avoid showing previous plots if an error occurs
-    if (py.FS.analyzePath('output.png').exists) {
-      py.FS.unlink('output.png');
-    }
+    // Give minimum delay for browser to render the loading view
+    await new Promise(r => setTimeout(r, 100));
 
-    await py.runPythonAsync(`
+    const workerCode = `
 import os
 os.environ['MPLBACKEND'] = 'AGG'
 import matplotlib.pyplot as plt
@@ -3086,13 +3136,12 @@ if not os.path.exists('output.png'):
         plt.savefig('output.png', transparent=True, bbox_inches='tight')
     except Exception:
         plt.savefig('output.png', transparent=True)
-`);
-    
-    // Check if generated
-    if (py.FS.analyzePath('output.png').exists) {
-      const imgData = py.FS.readFile('output.png');
-      const blob = new Blob([imgData], { type: 'image/png' });
-      const blobUrl = URL.createObjectURL(blob);
+`;
+
+    // Execute via Pyodide Web Worker
+    const imgData = await runPythonInWorker(workerCode);
+    const blob = new Blob([imgData], { type: 'image/png' });
+    const blobUrl = URL.createObjectURL(blob);
       
       visContainer.innerHTML = `
         <div style="margin-top: 1.5rem; text-align: center;">
@@ -3100,11 +3149,6 @@ if not os.path.exists('output.png'):
         </div>
       `;
       scrollToBottom(true);
-      // Clean up for next run
-      py.FS.unlink('output.png');
-    } else {
-      throw new Error("Code ran but did not yield output.png");
-    }
 
   } catch (err) {
     console.error("Visualization error:", err);

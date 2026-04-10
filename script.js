@@ -135,13 +135,6 @@ const state = {
     mistral: true,
     groq: true
   },
-  // Math visualization toggle per provider
-  mathVisEnabled: {
-    gemini: false,
-    ollama: false,
-    mistral: false,
-    groq: false
-  },
   // Selected models per provider
   selectedModels: {
     gemini: ["gemini-3.1-pro-preview"],
@@ -158,7 +151,6 @@ const state = {
   // Track running operations keyed by tab ID
   runningJobs: {},
   jobNodes: {}, // DOM elements for jobs running in the background
-  autoScrollEnabled: true,
 };
 
 /* ── Selection state ────────────────────────────────────── */
@@ -307,7 +299,6 @@ function renderSettingsModels() {
 
   providers.forEach(p => {
     const isEnabled = state.enabledProviders[p.id];
-    const mathVis = !!state.mathVisEnabled[p.id];
     
     // Header
     const header = document.createElement("div");
@@ -323,25 +314,6 @@ function renderSettingsModels() {
       </label>
     `;
     el.modelsView.appendChild(header);
-
-    // Math Visualization Setting
-    if (isEnabled) {
-      const visSetting = document.createElement("div");
-      visSetting.className = "settings-provider-header math-vis-setting";
-      visSetting.style.marginTop = "8px";
-      visSetting.style.paddingLeft = "24px";
-      visSetting.style.paddingBottom = "8px";
-      visSetting.innerHTML = `
-        <div class="provider-header-left" style="font-size: 0.9em; color: var(--text-sec);">
-          <span>Math Visualization</span>
-        </div>
-        <label class="toggle-switch" style="transform: scale(0.85);">
-          <input type="checkbox" class="mathvis-toggle" data-provider="${p.id}" ${mathVis ? "checked" : ""}>
-          <span class="slider"></span>
-        </label>
-      `;
-      el.modelsView.appendChild(visSetting);
-    }
 
     // Models container
     if (isEnabled && AVAILABLE_MODELS[p.id]) {
@@ -371,12 +343,6 @@ function renderSettingsModels() {
     cb.addEventListener("change", e => {
       state.enabledProviders[e.target.dataset.provider] = e.target.checked;
       renderSettingsModels(); // re-render to show/hide models
-    });
-  });
-
-  el.modelsView.querySelectorAll(".mathvis-toggle").forEach(cb => {
-    cb.addEventListener("change", e => {
-      state.mathVisEnabled[e.target.dataset.provider] = e.target.checked;
     });
   });
 
@@ -475,7 +441,6 @@ el.saveKey.addEventListener("click", () => {
   else localStorage.removeItem("mathai-ollama-apikey");
 
   localStorage.setItem("mathai-enabled-providers", JSON.stringify(state.enabledProviders));
-  localStorage.setItem("mathai-mathvis-enabled", JSON.stringify(state.mathVisEnabled));
   localStorage.setItem("mathai-selected-models", JSON.stringify(state.selectedModels));
 
   renderModelCarousel();
@@ -495,7 +460,6 @@ el.clearKey.addEventListener("click", () => {
   el.ollamaApiKeyInput.value = "";
   
   state.enabledProviders = { gemini: true, ollama: true, mistral: true, groq: true };
-  state.mathVisEnabled = { gemini: false, ollama: false, mistral: false, groq: false };
   state.selectedModels = {
     gemini: ["gemini-3.1-pro-preview"],
     ollama: ["qwen3.5:cloud"],
@@ -507,7 +471,7 @@ el.clearKey.addEventListener("click", () => {
   
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
-    "mathai-enabled-providers", "mathai-selected-models", "mathai-mathvis-enabled", "mathai-active-tab-id"
+    "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id"
   ];
   keys.forEach(k => localStorage.removeItem(k));
   
@@ -530,7 +494,6 @@ function loadSettings() {
   
   const ep = localStorage.getItem("mathai-enabled-providers");
   const sm = localStorage.getItem("mathai-selected-models");
-  const mv = localStorage.getItem("mathai-mathvis-enabled");
   const activeTabId = localStorage.getItem("mathai-active-tab-id");
 
   if (k) state.apiKey = k;
@@ -544,14 +507,6 @@ function loadSettings() {
        for (const p in state.enabledProviders) {
          if (parsedEp[p] !== undefined) {
            state.enabledProviders[p] = !!parsedEp[p];
-         }
-       }
-    }
-    if (mv) {
-       const parsedMv = JSON.parse(mv);
-       for (const p in state.mathVisEnabled) {
-         if (parsedMv[p] !== undefined) {
-           state.mathVisEnabled[p] = !!parsedMv[p];
          }
        }
     }
@@ -1202,7 +1157,7 @@ function handleCarouselTabClick(newTabId, newProviderId, newModelId, cardEl) {
     el.solutionContent.innerHTML = "";
     el.solutionContent.appendChild(state.jobNodes[newTabId]);
     disableOutputBtns();
-    scrollToBottom(true);
+    scrollToBottom();
   } else if (sel.active && sel.w >= MIN_SEL && sel.h >= MIN_SEL) {
     showToast(`Switching to ${pName} — analyzing…`);
     el.errorActions.classList.add("hidden");
@@ -1254,7 +1209,7 @@ el.tryAgainBtn.addEventListener("click", () => {
    AI SOLVE — Main dispatcher
    ========================================================= */
 
-const BASE_SYSTEM_PROMPT = `You are an expert Math AI Tutor. Solve the question presented in the image.
+const SYSTEM_PROMPT = `You are an expert Math AI Tutor. Solve the question presented in the image.
 
 Analyze the question carefully and structure your response EXACTLY in the following format.
 
@@ -1276,44 +1231,9 @@ Formatting Rules (CRITICAL):
 - Start directly with "**Explanation**". Do not use any introductory filler.
 - STEP HEADINGS: Every single step MUST begin with "### [Number]. [Title]". Example: "### 3. Calculate the Area".
 - NO BOLD TITLES: Do not use "**" for step headings. Just the "###" prefix.
-- NEWLINES: Every display math block ($$ ... $$) MUST be followed by EXACTLY TWO newlines (\\n\\n) before any following text.
+- NEWLINES: Every display math block ($$ ... $$) MUST be followed by EXACTLY TWO newlines (\n\n) before any following text.
 - LaTeX: Ensure all math expressions are wrapped in proper LaTeX ($ for inline, $$ for block).
 - Conciseness: Keep reasoning direct and math-focused.`;
-
-function getSystemPrompt(provider) {
-  let prompt = BASE_SYSTEM_PROMPT;
-  
-  if (state.mathVisEnabled && state.mathVisEnabled[provider]) {
-    prompt += `\n\n**Visualizations**
-Math Visualization is ENABLED. You MUST start your response EXACTLY with:
-**Explanation**
-
-### 1. Visualize the Problem Setup
-\`\`\`javascript
-// canvas
-[Write your pure Canvas API drawing code here. ONLY valid JavaScript.]
-\`\`\`
-
-CRITICAL FORMATTING REQUIREMENT:
-You MUST enclose your JavaScript code in a standard markdown code block delimited by three backticks (\`\`\`) and the word "javascript". If you do not include the backticks, the entire rendering system will break. DO NOT forget the \`\`\`javascript and the closing \`\`\`.
-
-FIRST IMAGE REQUIREMENT:
-The very first step MUST be a canvas block illustrating the geometric or algebraic setup.
-Crucially, the labels in this drawing MUST use the EXACT algebraic variables from your text. For example, if the base of a triangle is "4cm smaller than the altitude" ('h'), label the altitude "h" and the base "h-4" using \`ctx.fillText()\`. Do not use solved numbers in this image.
-
-CANVAS RULES:
-1. \`ctx\` (CanvasRenderingContext2D, 800x600) is ready to use. Do not define it.
-2. Keep the background transparent. Do not draw a background fill.
-3. Use \`ctx.strokeStyle = '#000000'\` and \`ctx.fillStyle = '#000000'\` for all shapes, lines, and text.
-4. For ANY math labels (fractions, symbols, exponents, etc.), use the provided helper: \`await drawLaTeX(ctx, String.raw\`\\frac{a}{b}\`, x, y, { fontSize: 22 });\`.
-   - IMPORTANT: Do NOT write LaTeX as a normal JS string like \`"\\times"\` or \`"\\frac{1}{2}"\` because JS treats \`\\t\` and \`\\f\` as escape sequences. Use \`String.raw\`...\`\` (preferred) or double-escape backslashes (\\\\times).
-   - Use \`ctx.textAlign\` / \`ctx.textBaseline\` for alignment (defaults are set for you).
-5. You may still use \`ctx.font = 'italic 20px KaTeX_Math, "Times New Roman", serif'\` + \`ctx.fillText()\` for plain text (like 'A', 'B', 'x-axis'), but NOT for LaTeX commands.
-6. Canvas Y-axis points DOWN. Center origin (0,0) by using \`ctx.translate(400, 300);\` and scale appropriately if graphing.`;
-  }
-  
-  return prompt;
-}
 
 el.solveSelBtn.addEventListener("click", (e) => {
   e.stopPropagation();
@@ -1327,7 +1247,6 @@ el.solveAllBtn.addEventListener("click", (e) => {
 });
 
 async function solveAllSelection() {
-  state.autoScrollEnabled = true;
   state.answerCache = {};
   state.runningJobs = {};
   state.jobNodes = {};
@@ -1503,7 +1422,7 @@ async function solveAllSelection() {
         setSolutionState("error");
         state.isSolved = false;
         el.errorActions.classList.remove("hidden");
-        scrollToBottom(true);
+        scrollToBottom();
       }
       state.answerCache[tabId] = {
         rawResponse: "",
@@ -1526,7 +1445,6 @@ async function solveAllSelection() {
  *                                     If false, only overwrites the current provider's result (e.g. for "Try again").
  */
 async function solveSelection(resetGlobalCache = false) {
-  state.autoScrollEnabled = true;
   if (resetGlobalCache) {
     state.answerCache = {};
     state.runningJobs = {};
@@ -1714,7 +1632,7 @@ async function solveSelection(resetGlobalCache = false) {
       setSolutionState("error");
       state.isSolved = false;
       el.errorActions.classList.remove("hidden");
-      scrollToBottom(true);
+      scrollToBottom();
     }
     
     console.error("AI error:", err);
@@ -1733,7 +1651,6 @@ el.chatInput.addEventListener("keydown", (e) => {
 });
 
 async function sendFollowUp() {
-  state.autoScrollEnabled = true;
   const currentTabId = state.activeTabId;
   if (!currentTabId) return;
   const [currentProvider, currentModel] = currentTabId.split(":");
@@ -1853,7 +1770,7 @@ async function sendFollowUp() {
       ),
     );
     if (currentTabId === state.activeTabId) {
-      scrollToBottom(true);
+      scrollToBottom();
     }
     console.error(err);
   } finally {
@@ -1875,7 +1792,7 @@ function appendThinkingIndicator(container = el.solutionContent) {
     </div>
   `;
   container.appendChild(div);
-  if (container === el.solutionContent) scrollToBottom(true);
+  if (container === el.solutionContent) scrollToBottom();
   return div;
 }
 
@@ -1895,7 +1812,7 @@ function getErrorHtml(title, message) {
 
 function appendErrorBox(container, title, message) {
   container.insertAdjacentHTML("beforeend", getErrorHtml(title, message));
-  scrollToBottom(true);
+  scrollToBottom();
 }
 
 /**
@@ -1905,7 +1822,7 @@ async function callGeminiChat(contents, apiKey, model, onChunk) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:streamGenerateContent?alt=sse&key=${apiKey}`;
 
   const body = {
-    system_instruction: { parts: [{ text: getSystemPrompt("gemini") }] },
+    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
     contents: contents,
     generationConfig: {
       temperature: 0.15,
@@ -1946,7 +1863,7 @@ async function callGroqChat(base64, apiKey, model, onChunk) {
   let messages;
   if (supportsVision) {
     messages = [
-      { role: "system", content: getSystemPrompt("groq") },
+      { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
         content: [
@@ -1959,7 +1876,7 @@ async function callGroqChat(base64, apiKey, model, onChunk) {
     ];
   } else {
     messages = [
-      { role: "system", content: getSystemPrompt("groq") },
+      { role: "system", content: SYSTEM_PROMPT },
       {
         role: "user",
         content: [
@@ -2009,7 +1926,7 @@ async function callGroqChat(base64, apiKey, model, onChunk) {
 async function callGroqFollowUp(messages, apiKey, model, onChunk) {
   const url = "https://api.groq.com/openai/v1/chat/completions";
   const fullMessages = [
-    { role: "system", content: getSystemPrompt("groq") },
+    { role: "system", content: SYSTEM_PROMPT },
     ...messages,
   ];
   const body = {
@@ -2051,14 +1968,14 @@ async function callMistralChat(base64, apiKey, model, onChunk) {
   let content;
   if (supportsVision) {
     content = [
-      { type: "text", text: getSystemPrompt("mistral") },
+      { type: "text", text: SYSTEM_PROMPT },
       { type: "image_url", image_url: `data:image/png;base64,${base64}` },
     ];
   } else {
     // For text-only Mistral models, we can still pass image_url format
     // (Mistral API handles it gracefully or ignores non-vision-capable parts)
     content = [
-      { type: "text", text: getSystemPrompt("mistral") },
+      { type: "text", text: SYSTEM_PROMPT },
       { type: "image_url", image_url: `data:image/png;base64,${base64}` },
     ];
   }
@@ -2066,7 +1983,7 @@ async function callMistralChat(base64, apiKey, model, onChunk) {
   const body = {
     model,
     messages: [
-      { role: "system", content: getSystemPrompt("mistral") },
+      { role: "system", content: SYSTEM_PROMPT },
       { role: "user", content },
     ],
     temperature: 0.15,
@@ -2110,7 +2027,7 @@ async function callMistralFollowUp(messages, apiKey, model, onChunk) {
   }));
   const body = {
     model,
-    messages: [{ role: "system", content: getSystemPrompt("mistral") }, ...cleanMessages],
+    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...cleanMessages],
     temperature: 0.15,
     max_tokens: 8192,
     stream: true,
@@ -2140,7 +2057,7 @@ async function callMistralFollowUp(messages, apiKey, model, onChunk) {
 async function callOllamaChat(base64, apiKey, model, onChunk) {
   const url = `/api/ollama`;
   const messages = [
-    { role: "system", content: getSystemPrompt("ollama") },
+    { role: "system", content: SYSTEM_PROMPT },
     {
       role: "user",
       content: "Please solve the question in this image.",
@@ -2185,7 +2102,7 @@ async function callOllamaFollowUp(messages, apiKey, model, onChunk) {
       : m.content,
   }));
   const fullMessages = [
-    { role: "system", content: getSystemPrompt("ollama") },
+    { role: "system", content: SYSTEM_PROMPT },
     ...cleanMessages,
   ];
   const headers = { "Content-Type": "application/json" };
@@ -2216,105 +2133,7 @@ async function callOllamaFollowUp(messages, apiKey, model, onChunk) {
    RENDER SOLUTION — Markdown + KaTeX
    ========================================================= */
 
-function hashStringDjb2(str) {
-  let h = 5381;
-  for (let i = 0; i < str.length; i++) {
-    h = ((h << 5) + h) ^ str.charCodeAt(i);
-  }
-  // Convert to unsigned 32-bit string
-  return (h >>> 0).toString(16);
-}
-
-function extractUnfencedCanvasFromVisualizeSection(raw) {
-  // Heuristic fallback when the model forgets to wrap canvas code in ``` fences.
-  // We ONLY consider code inside the "### 1. Visualize" section to avoid false positives.
-  if (/```(?:javascript|js)\n\/\/\s*canvas\n/i.test(raw)) return null;
-
-  const sectionStart = raw.search(/\n###\s*1\.[^\n]*visualize[^\n]*\n/i);
-  if (sectionStart === -1) return null;
-
-  const afterStart = sectionStart + 1;
-  let section = raw.slice(afterStart);
-  const nextHeading = section.search(/\n###\s*\d+\./);
-  if (nextHeading !== -1) section = section.slice(0, nextHeading);
-
-  const ctxIdx = section.search(/\n\s*ctx\./);
-  if (ctxIdx === -1) return null;
-
-  const codeStartInSection = ctxIdx + 1;
-  const sectionPrefix = section.slice(0, codeStartInSection);
-  const codeText = section.slice(codeStartInSection);
-  const lines = codeText.split("\n");
-
-  const codeLines = [];
-  let ctxCount = 0;
-  let consumedLines = 0;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const isCtx = /^ctx\./.test(trimmed);
-    const isComment = /^\/\//.test(trimmed);
-    const isBlank = trimmed.length === 0;
-    const isJsish =
-      /[;{}()]$/.test(trimmed) ||
-      /^(const|let|var|if|for|while|function|return)\b/.test(trimmed) ||
-      /^\}\)?;?$/.test(trimmed);
-
-    // Stop when we hit normal prose/markdown after we've started collecting code.
-    const looksLikeProse =
-      !isBlank &&
-      !isCtx &&
-      !isComment &&
-      !isJsish &&
-      /[A-Za-z]/.test(trimmed) &&
-      !/^\*\*|^\-|^\d+\./.test(trimmed);
-
-    if (looksLikeProse && codeLines.length > 0) break;
-
-    if (isCtx) ctxCount++;
-    codeLines.push(line);
-    consumedLines++;
-  }
-
-  if (ctxCount < 4) return null;
-
-  const extractedCode = codeLines.join("\n").trimEnd();
-  const sectionStartAbs = afterStart;
-  const codeStartAbs = sectionStartAbs + sectionPrefix.length;
-  const codeEndAbs = codeStartAbs + extractedCode.length;
-
-  const isStreamingLikely = codeEndAbs >= afterStart + section.length;
-
-  return {
-    jsCode: extractedCode,
-    start: codeStartAbs,
-    end: codeEndAbs,
-    isStreamingLikely,
-  };
-}
-
 function renderMarkdown(raw, container) {
-  // Keep a stable DOM structure so streaming updates don't restart animations.
-  let mdBefore = container.querySelector(":scope > .rendered-markdown-before");
-  let visStage = container.querySelector(":scope > .math-vis-stage");
-  let mdAfter = container.querySelector(":scope > .rendered-markdown-after");
-
-  if (!mdBefore) {
-    mdBefore = document.createElement("div");
-    mdBefore.className = "rendered-markdown-before";
-    container.appendChild(mdBefore);
-  }
-  if (!visStage) {
-    visStage = document.createElement("div");
-    visStage.className = "math-vis-stage";
-    visStage.hidden = true;
-    container.appendChild(visStage);
-  }
-  if (!mdAfter) {
-    mdAfter = document.createElement("div");
-    mdAfter.className = "rendered-markdown-after";
-    container.appendChild(mdAfter);
-  }
-
   let processed = raw;
 
   // Auto-close unclosed blocks to prevent formatting glitches during streaming
@@ -2334,74 +2153,6 @@ function renderMarkdown(raw, container) {
     (match, p1) => `$$${p1}$$`,
   );
 
-  // Detect canvas streaming (fenced) OR fallback-detect unfenced ctx.* canvas code.
-  const hasFencedCanvas = /```(?:javascript|js)\n\/\/\s*canvas\n/i.test(raw);
-  const isStreamingFencedCanvas = /```(?:javascript|js)\n\/\/\s*canvas\n(?:(?!```)[\s\S])*$/i.test(raw);
-  const unfenced = extractUnfencedCanvasFromVisualizeSection(raw);
-
-  const hasCanvas = hasFencedCanvas || !!unfenced;
-  const isStreamingCanvas = isStreamingFencedCanvas || (!!unfenced && unfenced.isStreamingLikely);
-
-  if (!hasCanvas) {
-    visStage.hidden = true;
-    visStage.classList.remove("is-loading", "is-ready", "is-error");
-    visStage.dataset.state = "";
-  } else {
-    visStage.hidden = false;
-    if (isStreamingCanvas) {
-      if (visStage.dataset.state !== "loading") {
-        visStage.dataset.state = "loading";
-        visStage.classList.remove("is-ready", "is-error");
-        visStage.classList.add("is-loading");
-        visStage.innerHTML = `
-            <div class="math-vis-loader" role="status" aria-live="polite">
-              <div class="math-vis-loader-label">Visualizing problem setup</div>
-              <div class="math-vis-loader-track" aria-hidden="true">
-                <div class="math-vis-loader-indicator"></div>
-              </div>
-            </div>
-        `;
-      }
-    } else {
-      // Extract the FIRST complete canvas block only (we only want the setup diagram).
-      const m = raw.match(/```(?:javascript|js)\n\/\/\s*canvas\n([\s\S]*?)```/i);
-      const jsCode = (m ? m[1] : "") || (unfenced ? unfenced.jsCode : "");
-      const codeHash = hashStringDjb2(jsCode);
-
-      if (jsCode && visStage.dataset.codeHash !== codeHash) {
-        // Render async so we can KaTeX-render labels into the canvas.
-        const renderJobId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-        visStage.dataset.renderJobId = renderJobId;
-        visStage.dataset.state = "loading";
-        visStage.dataset.codeHash = codeHash;
-        visStage.classList.remove("is-ready", "is-error");
-        visStage.classList.add("is-loading");
-        visStage.innerHTML = `
-            <div class="math-vis-loader" role="status" aria-live="polite">
-              <div class="math-vis-loader-label">Visualizing problem setup</div>
-              <div class="math-vis-loader-track" aria-hidden="true">
-                <div class="math-vis-loader-indicator"></div>
-              </div>
-            </div>
-        `;
-
-        void renderMathVisToStage(visStage, jsCode, codeHash, renderJobId);
-      }
-    }
-  }
-
-  // Remove canvas blocks from the markdown output (we show the stage instead).
-  // Fenced blocks
-  processed = processed.replace(
-    /```(?:javascript|js)\n\/\/\s*canvas\n[\s\S]*?(?:```|$)/gi,
-    "",
-  );
-
-  // Unfenced fallback: remove the detected ctx.* block too (avoid showing raw code).
-  if (unfenced && unfenced.jsCode) {
-    processed = processed.replace(unfenced.jsCode, "");
-  }
-
   const escapeHTML = (str) =>
     str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
@@ -2415,25 +2166,11 @@ function renderMarkdown(raw, container) {
     return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
   });
 
-  // Split the markdown so the visualization sits directly after
-  // "### 1. Visualize the Problem Setup".
-  let beforeText = processed;
-  let afterText = "";
-  const visualizeMatch = processed.match(/(^|\n)###\s*1\.[^\n]*visualize[^\n]*\n/i);
-  if (visualizeMatch && visualizeMatch.index != null) {
-    const matchIndex = visualizeMatch.index;
-    const matchLen = visualizeMatch[0].length;
-    const splitIndex = matchIndex + matchLen;
-    beforeText = processed.slice(0, splitIndex);
-    afterText = processed.slice(splitIndex);
-  }
-
   marked.setOptions({ breaks: true, gfm: true });
-  mdBefore.innerHTML = marked.parse(beforeText);
-  mdAfter.innerHTML = afterText ? marked.parse(afterText) : "";
+  container.innerHTML = marked.parse(processed);
 
   if (typeof renderMathInElement !== "undefined") {
-    renderMathInElement(mdBefore, {
+    renderMathInElement(container, {
       delimiters: [
         { left: "$$", right: "$$", display: true },
         { left: "$", right: "$", display: false },
@@ -2442,269 +2179,6 @@ function renderMarkdown(raw, container) {
       ],
       throwOnError: false,
     });
-
-    if (mdAfter.innerHTML) {
-      renderMathInElement(mdAfter, {
-        delimiters: [
-          { left: "$$", right: "$$", display: true },
-          { left: "$", right: "$", display: false },
-          { left: "\\[", right: "\\]", display: true },
-          { left: "\\(", right: "\\)", display: false },
-        ],
-        throwOnError: false,
-      });
-    }
-  }
-}
-
-async function renderMathVisToStage(visStage, jsCode, codeHash, renderJobId) {
-  const isJobCurrent = () =>
-    visStage &&
-    visStage.dataset &&
-    visStage.dataset.renderJobId === renderJobId &&
-    visStage.dataset.codeHash === codeHash;
-
-  const withTimeout = (promise, ms) =>
-    Promise.race([
-      promise,
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Visualization timed out")), ms),
-      ),
-    ]);
-
-  // Minimal KaTeX → image renderer with caching.
-  const renderLatexToSmallCanvas = (() => {
-    const cache = new Map();
-    let stageHost = null;
-    let warnedMissingHtml2Canvas = false;
-    const ensureHost = () => {
-      if (stageHost) return stageHost;
-      stageHost = document.createElement("div");
-      stageHost.setAttribute("data-mathvis-katex-host", "");
-      stageHost.style.cssText =
-        "position:fixed;left:-10000px;top:-10000px;" +
-        "pointer-events:none;opacity:0;" +
-        "background:transparent;";
-      document.body.appendChild(stageHost);
-      return stageHost;
-    };
-
-    return async (latex, opts = {}) => {
-      const fontSize = Number(opts.fontSize || 22);
-      const color = String(opts.color || "#000000");
-      const displayMode = Boolean(opts.displayMode);
-      const scale = Number(opts.scale || 2);
-
-      const key = `${latex}|${fontSize}|${color}|${displayMode}|${scale}`;
-      const cached = cache.get(key);
-      if (cached) return cached;
-
-      if (typeof katex === "undefined") {
-        throw new Error("KaTeX is not loaded");
-      }
-      if (typeof html2canvas === "undefined") {
-        // Degrade gracefully (drawLaTeX will fall back to ctx.fillText).
-        if (!warnedMissingHtml2Canvas) {
-          warnedMissingHtml2Canvas = true;
-          try {
-            showToast("⚠️ Visualization math needs html2canvas (network blocked?)");
-          } catch {
-            // ignore
-          }
-        }
-        return null;
-      }
-
-      const host = ensureHost();
-      const span = document.createElement("span");
-      span.style.cssText =
-        `font-size:${fontSize}px;line-height:1;` +
-        `color:${color};background:transparent;` +
-        "display:inline-block;white-space:nowrap;";
-
-      katex.render(latex, span, {
-        throwOnError: false,
-        strict: false,
-        displayMode,
-      });
-
-      host.appendChild(span);
-
-      // Ensure fonts are ready before snapshot.
-      if (document.fonts && document.fonts.ready) {
-        try {
-          await document.fonts.ready;
-        } catch {
-          // ignore
-        }
-      }
-
-      const smallCanvas = await html2canvas(span, {
-        backgroundColor: null,
-        scale,
-        useCORS: true,
-        logging: false,
-      });
-
-      span.remove();
-      cache.set(key, smallCanvas);
-      return smallCanvas;
-    };
-  })();
-
-  const drawLaTeX = async (ctx, latex, x, y, opts = {}) => {
-    const smallCanvas = await renderLatexToSmallCanvas(String(latex), opts);
-    if (!smallCanvas) {
-      // Fallback: best-effort plain text if html2canvas is missing.
-      // This won't render fractions, but avoids hard errors.
-      const raw = String(latex ?? "");
-      const text = raw.replace(/\s+/g, " ").trim();
-      ctx.save();
-      const fontSize = Number(opts.fontSize || extractFontSize(ctx.font) || 22);
-      ctx.font = `italic ${fontSize}px KaTeX_Math, "Times New Roman", serif`;
-      ctx.fillStyle = String(opts.color || ctx.fillStyle || "#000000");
-      if (opts.align) ctx.textAlign = String(opts.align);
-      if (opts.baseline) ctx.textBaseline = String(opts.baseline);
-      ctx.fillText(text, x, y);
-      ctx.restore();
-      return;
-    }
-    const scale = Number(opts.scale || 2);
-    const w = smallCanvas.width / scale;
-    const h = smallCanvas.height / scale;
-
-    const align = String(opts.align || ctx.textAlign || "center");
-    const baseline = String(opts.baseline || ctx.textBaseline || "middle");
-
-    let dx = x;
-    if (align === "center") dx = x - w / 2;
-    else if (align === "right" || align === "end") dx = x - w;
-
-    let dy = y;
-    if (baseline === "middle") dy = y - h / 2;
-    else if (baseline === "bottom" || baseline === "ideographic") dy = y - h;
-    else if (baseline === "alphabetic") dy = y - h * 0.8;
-
-    ctx.drawImage(smallCanvas, dx, dy, w, h);
-  };
-
-  const stripLatexDelimiters = (s) => {
-    const str = String(s ?? "").trim();
-    if (str.startsWith("$$") && str.endsWith("$$") && str.length >= 4) {
-      return str.slice(2, -2).trim();
-    }
-    if (str.startsWith("$") && str.endsWith("$") && str.length >= 2) {
-      return str.slice(1, -1).trim();
-    }
-    if (str.startsWith("\\(") && str.endsWith("\\)") && str.length >= 4) {
-      return str.slice(2, -2).trim();
-    }
-    if (str.startsWith("\\[") && str.endsWith("\\]") && str.length >= 4) {
-      return str.slice(2, -2).trim();
-    }
-    return str;
-  };
-
-  const recoverJsEscapesToLatex = (s) => {
-    // If the model writes "\times" or "\theta" as a JS string,
-    // JS interprets \t as a TAB, \f as form-feed, etc.
-    // Convert those control characters back into LaTeX command prefixes.
-    return String(s ?? "")
-      .replace(/\t/g, "\\t")
-      .replace(/\n/g, "\\n")
-      .replace(/\r/g, "\\r")
-      .replace(/\f/g, "\\f")
-      .replace(/\v/g, "\\v")
-      .replace(/\x08/g, "\\b");
-  };
-
-  const looksLikeLatex = (s) => {
-    const str = String(s ?? "");
-    if (!str) return false;
-    if (/[\\^_{}]/.test(str)) return true;
-    if (/\$\$|\$/.test(str)) return true;
-    // JS-escape artifacts for common LaTeX commands (\t, \f, etc.)
-    if (/[\t\n\r\f\v\b]/.test(str)) return true;
-    return false;
-  };
-
-  const extractFontSize = (font) => {
-    const m = String(font || "").match(/(\d+(?:\.\d+)?)px/);
-    return m ? Number(m[1]) : 22;
-  };
-
-  try {
-    const canvas = document.createElement("canvas");
-    canvas.width = 800;
-    canvas.height = 600;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) throw new Error("Canvas 2D context not available");
-
-    // Provide more predictable defaults for label placement.
-    ctx.textAlign = "center";
-    ctx.textBaseline = "middle";
-
-    // Backwards-compatible: if the AI uses ctx.fillText() with LaTeX-like strings,
-    // capture them and render via KaTeX instead of drawing literal escape garbage.
-    const pendingLatexLabels = [];
-    const origFillText = ctx.fillText.bind(ctx);
-    ctx.fillText = function (text, x, y, maxWidth) {
-      if (looksLikeLatex(text)) {
-        pendingLatexLabels.push({
-          text,
-          x,
-          y,
-          maxWidth,
-          align: ctx.textAlign,
-          baseline: ctx.textBaseline,
-          fontSize: extractFontSize(ctx.font),
-          color: typeof ctx.fillStyle === "string" ? ctx.fillStyle : "#000000",
-        });
-        return;
-      }
-      return maxWidth != null
-        ? origFillText(text, x, y, maxWidth)
-        : origFillText(text, x, y);
-    };
-
-    // Execute the AI's drawing code as async so it can await drawLaTeX.
-    const wrapped = `"use strict";\nreturn (async () => {\n${jsCode}\n})();`;
-    const drawFn = new Function("ctx", "drawLaTeX", wrapped);
-
-    await withTimeout(drawFn(ctx, drawLaTeX), 12000);
-
-    // Render any captured LaTeX labels (sequentially to avoid thrashing html2canvas).
-    for (const item of pendingLatexLabels) {
-      const recovered = recoverJsEscapesToLatex(item.text);
-      const latex = stripLatexDelimiters(recovered);
-      if (!latex) continue;
-      await drawLaTeX(ctx, latex, item.x, item.y, {
-        fontSize: item.fontSize,
-        color: item.color,
-        align: item.align,
-        baseline: item.baseline,
-        displayMode: false,
-      });
-    }
-
-    const dataUrl = canvas.toDataURL("image/png");
-    if (!isJobCurrent()) return;
-
-    visStage.dataset.state = "ready";
-    visStage.classList.remove("is-loading", "is-error");
-    visStage.classList.add("is-ready");
-    visStage.innerHTML = `
-      <img class="math-vis-img" src="${dataUrl}" alt="Mathematical Problem Visualization" />
-    `;
-  } catch (err) {
-    console.error("Canvas execution error:", err);
-    if (!isJobCurrent()) return;
-    visStage.dataset.state = "error";
-    visStage.classList.remove("is-loading", "is-ready");
-    visStage.classList.add("is-error");
-    visStage.innerHTML = `
-      <div class="math-vis-error">[Visualization Render Error: ${String(err?.message || err)}]</div>
-    `;
   }
 }
 
@@ -2726,7 +2200,7 @@ function appendUserMessage(text, container = el.solutionContent) {
   userMsg.textContent = text;
   container.appendChild(userMsg);
   if (container === el.solutionContent || el.solutionContent.contains(container)) {
-    scrollToBottom(true);
+    scrollToBottom();
   }
 }
 
@@ -2737,16 +2211,9 @@ function appendAIMessage(raw) {
   renderMarkdown(raw, aiMsg);
 }
 
-el.solutionContent.parentElement.addEventListener("scroll", () => {
-  const container = el.solutionContent.parentElement;
-  // Automatically enable auto-scroll if user is within 50px of the bottom
-  const scrollDistanceToBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-  state.autoScrollEnabled = scrollDistanceToBottom < 50;
-});
-
-function scrollToBottom(force = false) {
-  if (!force && !state.autoScrollEnabled) return;
-  el.solutionContent.parentElement.scrollTop = el.solutionContent.parentElement.scrollHeight;
+function scrollToBottom() {
+  el.solutionContent.parentElement.scrollTop =
+    el.solutionContent.parentElement.scrollHeight;
 }
 
 /**

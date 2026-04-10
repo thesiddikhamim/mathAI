@@ -3059,7 +3059,7 @@ Rules:
 3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). ALL text and labels MUST be pure black ('#000000') and formatted as Computer Modern Italic math font using Matplotlib's native MathText (e.g. write $h-4$, $\\times$, $\\theta$, etc).
 4. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
    - ALL strokes, edges, borders, and standalone lines MUST ALWAYS be pure black ('#000000') with a smooth, thick linewidth (e.g., linewidth=3.5).
-   - Use this exact color palette sequentially to fill the areas (facecolor) of shapes or graph regions to distinguish them: 1st item gets TEAL ('#5cd0d2'), 2nd item gets RED ('#fc6255') , 3rd item gets YELLOW ('#ffff00'), 4th item gets BLUE ('#cf3fd7'), 5th item gets PURPLE ('#9a72ac'), 6th item gets GREEN ('#83c167'). Do not randomize colors.
+   - Use color palette to fill the areas (facecolor) of shapes or graph regions to distinguish them. not always where needed.
    - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines in black and make them slightly faded.
    - Text labels should be large (fontsize=14+) and strictly pure black. Do NOT color the text.
 5. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().

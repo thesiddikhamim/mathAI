@@ -1607,7 +1607,7 @@ async function solveAllSelection() {
 
       if (state.enableVisualization && response.trim().length > 0) {
         try {
-          await renderVisualization(response, wrapper);
+          await renderVisualization(response, wrapper, tabId);
         } catch (e) {
           console.error(e);
         }
@@ -1806,7 +1806,7 @@ async function solveSelection(resetGlobalCache = false) {
 
     if (state.enableVisualization && response.trim().length > 0) {
       try {
-        await renderVisualization(response, wrapper);
+        await renderVisualization(response, wrapper, currentTabId);
       } catch (e) {
         console.error(e);
       }
@@ -1979,7 +1979,7 @@ async function sendFollowUp() {
 
     if (state.enableVisualization && response.trim().length > 0) {
       try {
-        await renderVisualization(response, wrapper);
+        await renderVisualization(response, wrapper, currentTabId);
       } catch (e) {
         console.error(e);
       }
@@ -3095,12 +3095,13 @@ function runPythonInWorker(code) {
   });
 }
 
-async function renderVisualization(aiText, wrapper) {
+async function renderVisualization(aiText, wrapper, tabId) {
   if (!state.enableVisualization) return;
   if (!state.visModelConfig) return;
 
   // Check if visualization is enabled for the current chat model
-  if (!state.visEnabledModels.includes(state.activeTabId)) return;
+  const modelToCheck = tabId || state.activeTabId;
+  if (!state.visEnabledModels.includes(modelToCheck)) return;
 
   const [visProvider, visModel] = state.visModelConfig.split(":");
   const providerKey = {
@@ -3135,7 +3136,7 @@ Your task is to write a Python script using Matplotlib to visualize the ORIGINAL
 Rules:
 1. ONLY output valid Python code strictly enclosed in a \`\`\`python ... \`\`\` block. DO NOT use external libraries other than math, numpy, and matplotlib. No conversational text whatsoever.
 2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
-3. Add clear labels, annotations, or text to the shapes/graphs to show the variables used (like 'x', 'h', 'h-4'). ALL text and labels MUST be pure black ('#000000'). Set the font to Times New Roman and make styling italic for variable names. Example: \`plt.rcParams['font.family'] = 'Times New Roman'\` and \`plt.rcParams['mathtext.fontset'] = 'custom'\`. Use standard italic variables where appropriate like $\mathit{h-4}$.
+3. Add clear labels, annotations, or text to the shapes/graphs. ALL text and labels MUST be pure black ('#000000'). To format text nicely like "Computer Modern Italic Math", you MUST use Matplotlib's MathText for ALL labels and text by wrapping ALL strings in \`$\` (e.g. \`ax.text(0, 0, "$Triangle$")\`). Include \`plt.rcParams['mathtext.fontset'] = 'cm'\`. Do NOT attempt to load custom external fonts like 'Times New Roman' or 'Computer Modern Roman' via \`font.family\`. Use standard italic variables where appropriate like $\mathit{h-4}$.
 4. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
    - ALL strokes, edges, borders, and standalone lines MUST ALWAYS be pure black ('#000000') with a smooth, thick linewidth (e.g., linewidth=3.5).
    - Use different colors to fill the areas (facecolor) of shapes or graph regions so they can be easily distinguished. AI should choose beautiful, modern, better colors for filling. HOWEVER, only use fill or distinct colors WHERE APPLICABLE and NECESSARY to distinguish distinct elements. Do not over-color if unnecessary. 

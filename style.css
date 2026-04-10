@@ -980,7 +980,8 @@ body {
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
   transform: translateY(-1px);
 }
-.model-checkbox-label:has(input[type="checkbox"]:checked) {
+.model-checkbox-label:has(input[type="checkbox"]:checked),
+.model-checkbox-label:has(input[type="radio"]:checked) {
   background: var(--accent-glow);
   border-color: var(--accent);
   color: var(--accent);
@@ -990,7 +991,8 @@ body {
 .model-checkbox-label:active {
   transform: scale(0.97);
 }
-.model-checkbox-label input[type="checkbox"] {
+.model-checkbox-label input[type="checkbox"],
+.model-checkbox-label input[type="radio"] {
   position: absolute;
   opacity: 0;
   cursor: pointer;

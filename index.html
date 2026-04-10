@@ -156,22 +156,36 @@
 
           <div id="visualizationView" class="settings-view hidden">
             <div class="settings-section">
-              <label class="settings-label" style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                <input type="checkbox" id="enableVisualization" style="width: 16px; height: 16px;" />
-                Enable AI Visualization (Pyodide)
-              </label>
-              <p style="font-size: 13px; color: var(--text-muted); margin-top: 6px;">
-                Uses a coding model to write Python Matplotlib code, running locally in your browser via WebAssembly to generate a transparent image of the math problem.
+              <div class="settings-provider-header" style="justify-content: space-between; padding-bottom: 0; border: none; margin-bottom: 8px;">
+                <div class="provider-header-left" style="gap: 10px;">
+                  <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color: var(--accent);">
+                    <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                    <circle cx="8.5" cy="8.5" r="1.5"/>
+                    <polyline points="21 15 16 10 5 21"/>
+                  </svg>
+                  <span style="font-weight: 500;">Enable AI Visualization (Pyodide)</span>
+                </div>
+                <label class="toggle-switch">
+                  <input type="checkbox" id="enableVisualization" />
+                  <span class="slider"></span>
+                </label>
+              </div>
+              <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
+                Uses a specialized coding model to seamlessly write and run Python Matplotlib scripts locally in your browser via WebAssembly, rendering a transparent shape/geometry map for your math setup.
               </p>
             </div>
             
-            <div class="settings-section">
-              <label class="settings-label" for="visModelSelect">
-                Coding Model for Visualization
-              </label>
-              <select id="visModelSelect" class="text-input" style="width: 100%; padding: 8px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: var(--bg-primary); color: var(--text-primary); margin-top: 6px;">
-                <!-- Populated via JS -->
-              </select>
+            <div id="visModelsWrapper">
+              <div class="settings-divider" style="margin: 20px 0;"></div>
+
+              <div class="settings-section">
+                <label class="settings-label" style="display: block; margin-bottom: 16px;">
+                  Select Visualization Model
+                </label>
+                <div id="visModelsContainer">
+                  <!-- Populated via JS -->
+                </div>
+              </div>
             </div>
           </div>
 

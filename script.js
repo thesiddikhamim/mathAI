@@ -32,7 +32,8 @@ const el = {
   modelsView: $("modelsView"),
   visualizationView: $("visualizationView"),
   enableVisualization: $("enableVisualization"),
-  visModelSelect: $("visModelSelect"),
+  visModelsWrapper: $("visModelsWrapper"),
+  visModelsContainer: $("visModelsContainer"),
 
   apiKeyInput: $("apiKeyInput"),
   toggleKeyVis: $("toggleKeyVisibility"),
@@ -370,22 +371,63 @@ function renderSettingsModels() {
 }
 
 function renderVisModels() {
-  if (!el.visModelSelect) return;
-  el.visModelSelect.innerHTML = "";
-  Object.keys(AVAILABLE_MODELS).forEach(p => {
-    const isEnabled = state.enabledProviders[p];
-    if (isEnabled && AVAILABLE_MODELS[p]) {
-      const optgroup = document.createElement("optgroup");
-      optgroup.label = p.charAt(0).toUpperCase() + p.slice(1);
-      AVAILABLE_MODELS[p].forEach(m => {
-        const opt = document.createElement("option");
-        opt.value = p + ":" + m.id;
-        opt.textContent = m.label;
-        if (opt.value === state.visModelConfig) opt.selected = true;
-        optgroup.appendChild(opt);
+  if (!el.visModelsContainer) return;
+  el.visModelsContainer.innerHTML = "";
+  
+  const providers = [
+    { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
+    { id: "ollama", name: "Ollama Cloud", icon: "ollama.svg" },
+    { id: "mistral", name: "Mistral AI", icon: "mistral.svg" },
+    { id: "groq", name: "Groq", icon: "groq.svg" }
+  ];
+
+  providers.forEach((p, index) => {
+    const isEnabled = state.enabledProviders[p.id];
+    if (isEnabled && AVAILABLE_MODELS[p.id]) {
+      const group = document.createElement("div");
+      group.className = "vis-provider-group";
+      group.style.marginBottom = "20px";
+      
+      const header = document.createElement("div");
+      header.className = "provider-header-left";
+      header.style.marginBottom = "10px";
+      header.innerHTML = `
+        <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="provider-logo" alt="${p.name}" style="width: 18px; height: 18px;" />
+        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">${p.name}</span>
+      `;
+      group.appendChild(header);
+      
+      const grid = document.createElement("div");
+      grid.className = "models-grid";
+      
+      AVAILABLE_MODELS[p.id].forEach(m => {
+        const val = p.id + ":" + m.id;
+        const isSelected = state.visModelConfig === val;
+        
+        const lbl = document.createElement("label");
+        lbl.className = "model-checkbox-label";
+        
+        lbl.innerHTML = `
+          <input type="radio" name="visModelGlobalRadio" class="model-radio" value="${val}" ${isSelected ? "checked" : ""}>
+          ${m.label}
+        `;
+        grid.appendChild(lbl);
       });
-      el.visModelSelect.appendChild(optgroup);
+      
+      group.appendChild(grid);
+      el.visModelsContainer.appendChild(group);
+      
+      // Add a mini divider if it's not the last enabled one, but visual spacing is usually enough.
     }
+  });
+
+  // Add event listeners for the radio buttons
+  el.visModelsContainer.querySelectorAll(".model-radio").forEach(radio => {
+    radio.addEventListener("change", e => {
+      if (e.target.checked) {
+        state.visModelConfig = e.target.value;
+      }
+    });
   });
 }
 
@@ -395,7 +437,13 @@ function openSettings() {
   el.mistralApiKeyInput.value = state.mistralApiKey;
   el.ollamaApiKeyInput.value = state.ollamaApiKey;
   
-  if (el.enableVisualization) el.enableVisualization.checked = state.enableVisualization;
+  if (el.enableVisualization) {
+    el.enableVisualization.checked = state.enableVisualization;
+    if (el.visModelsWrapper) {
+      el.visModelsWrapper.classList.toggle("hidden", !state.enableVisualization);
+    }
+  }
+  
   renderVisModels();
   
   renderSettingsModels();
@@ -459,6 +507,18 @@ el.settingsOv.addEventListener("click", (e) => {
   if (e.target === el.settingsOv) closeSettings();
 });
 
+if (el.enableVisualization) {
+  el.enableVisualization.addEventListener("change", (e) => {
+    if (el.visModelsWrapper) {
+      if (e.target.checked) {
+        el.visModelsWrapper.classList.remove("hidden");
+      } else {
+        el.visModelsWrapper.classList.add("hidden");
+      }
+    }
+  });
+}
+
 // Eye toggle for each provider key
 function makeEyeToggle(btn, input) {
   btn.addEventListener("click", () => {
@@ -501,8 +561,7 @@ el.saveKey.addEventListener("click", () => {
   state.enableVisualization = el.enableVisualization ? el.enableVisualization.checked : false;
   localStorage.setItem("mathai-enable-vis", state.enableVisualization);
   
-  if (el.visModelSelect && el.visModelSelect.value) {
-    state.visModelConfig = el.visModelSelect.value;
+  if (state.visModelConfig) {
     localStorage.setItem("mathai-vis-model", state.visModelConfig);
   }
 
@@ -536,7 +595,6 @@ el.clearKey.addEventListener("click", () => {
   state.enableVisualization = false;
   state.visModelConfig = "ollama:qwen3.5:cloud";
   if (el.enableVisualization) el.enableVisualization.checked = false;
-  if (el.visModelSelect) el.visModelSelect.value = state.visModelConfig;
   
   renderSettingsModels();
   renderVisModels();

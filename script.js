@@ -3343,7 +3343,7 @@ import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import numpy as np
+      out = re.sub(r'\\text\{([^{}]*)\}', lambda m: m.group(1), out)
 import math
 
 plt.show = lambda *args, **kwargs: None

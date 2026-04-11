@@ -3030,6 +3030,13 @@ if (document.readyState === "loading") {
 
 let pyodideWorker = null;
 
+function resetPyodideWorker() {
+  if (pyodideWorker) {
+    pyodideWorker.terminate();
+    pyodideWorker = null;
+  }
+}
+
 function getPyodideWorker() {
   if (pyodideWorker) return pyodideWorker;
   
@@ -3066,10 +3073,31 @@ matplotlib.use('Agg')
 import matplotlib.text as mtext
 if not hasattr(mtext.Text, '_original_get_layout'):
     mtext.Text._original_get_layout = mtext.Text._get_layout
+    def _sanitize_mathtext(s):
+        if not isinstance(s, str):
+            return s
+        out = s
+        out = out.replace('$$', '$')
+        out = out.replace('\\\\textbf', '\\\\mathbf')
+        out = out.replace('\\\\textit', '\\\\mathit')
+        # Convert \text{...} into plain content to avoid unsupported mathtext command.
+        import re
+        prev = None
+        while prev != out:
+            prev = out
+            out = re.sub(r'\\\\text\\{([^{}]*)\\}', r'\\1', out)
+        return out
     def safe_get_layout(self, renderer):
         try:
             return self._original_get_layout(renderer)
         except Exception:
+            candidate = _sanitize_mathtext(self.get_text())
+            if candidate != self.get_text():
+                self.set_text(candidate)
+                try:
+                    return self._original_get_layout(renderer)
+                except Exception:
+                    pass
             self.set_text(self.get_text().replace('$', ''))
             return self._original_get_layout(renderer)
     mtext.Text._get_layout = safe_get_layout
@@ -3077,7 +3105,13 @@ if not hasattr(mtext.Text, '_original_get_layout'):
       
       await py.runPythonAsync(robustCode);
     } catch (innerErr) {
-      if (innerErr.message && innerErr.message.includes("ParseFatalException")) {
+      const msg = innerErr && innerErr.message ? innerErr.message : "";
+      if (
+        msg.includes("ParseFatalException") ||
+        msg.includes("ParseException") ||
+        msg.includes("mathtext") ||
+        msg.includes("Expected main")
+      ) {
         // Fallback: retry without LaTeX mapping to prevent visualization failing on mathtext parses
         const fallbackCode = \`
 import matplotlib
@@ -3098,7 +3132,33 @@ matplotlib.use('Agg')
       self.postMessage({ id, success: false, error: "Code ran but did not yield output.png" });
     }
   } catch (err) {
-    self.postMessage({ id, success: false, error: err.message });
+    try {
+      const py = await getPy();
+      const safeFallback = [
+        "import matplotlib",
+        "matplotlib.use('Agg')",
+        "import matplotlib.pyplot as plt",
+        "fig, ax = plt.subplots(figsize=(8, 4.5))",
+        "fig.patch.set_alpha(0)",
+        "ax.patch.set_alpha(0)",
+        "ax.axis('off')",
+        "ax.text(0.5, 0.55, 'Visualization fallback rendered', ha='center', va='center', fontsize=14, color='#000000', style='italic', family='serif')",
+        "ax.text(0.5, 0.40, 'Original script had invalid plotting syntax', ha='center', va='center', fontsize=11, color='#000000', family='serif')",
+        "plt.savefig('output.png', transparent=True, bbox_inches='tight')",
+        "plt.close('all')",
+      ].join('\\n');
+      await py.runPythonAsync(safeFallback);
+      if (py.FS.analyzePath('output.png').exists) {
+        const imgData = py.FS.readFile('output.png');
+        const uint8 = new Uint8Array(imgData);
+        py.FS.unlink('output.png');
+        self.postMessage({ id, success: true, imgData: uint8, warning: err && err.message ? err.message : 'Fallback rendered' }, [uint8.buffer]);
+      } else {
+        self.postMessage({ id, success: false, error: err && err.message ? err.message : 'Visualization worker failed' });
+      }
+    } catch (fallbackErr) {
+      self.postMessage({ id, success: false, error: (fallbackErr && fallbackErr.message) || (err && err.message) || 'Visualization worker failed' });
+    }
   }
 };
   `;
@@ -3109,23 +3169,70 @@ matplotlib.use('Agg')
 }
 
 function runPythonInWorker(code) {
-  return new Promise((resolve, reject) => {
+  const executeOnce = () => new Promise((resolve, reject) => {
     const worker = getPyodideWorker();
     const id = Date.now() + Math.random().toString();
-    
+    const timeoutMs = 45000;
+
+    const cleanup = () => {
+      clearTimeout(timer);
+      worker.removeEventListener('message', handler);
+      worker.removeEventListener('error', errorHandler);
+    };
+
     const handler = (e) => {
       if (e.data.id === id) {
-        worker.removeEventListener('message', handler);
+        cleanup();
         if (e.data.success) {
           resolve(e.data.imgData);
         } else {
-          reject(new Error(e.data.error));
+          reject(new Error(e.data.error || "Visualization worker failed"));
         }
       }
     };
+
+    const errorHandler = (e) => {
+      cleanup();
+      reject(new Error(e?.message || "Visualization worker crashed"));
+    };
+
+    const timer = setTimeout(() => {
+      cleanup();
+      reject(new Error("Visualization timed out in worker"));
+    }, timeoutMs);
+
     worker.addEventListener('message', handler);
+    worker.addEventListener('error', errorHandler);
     worker.postMessage({ id, code });
   });
+
+  return executeOnce().catch(async (err) => {
+    const msg = (err && err.message ? err.message : "").toLowerCase();
+    const shouldResetAndRetry =
+      msg.includes("cannot import name 'document'") ||
+      msg.includes("wasm_backend") ||
+      msg.includes("visualization worker crashed") ||
+      msg.includes("timed out");
+
+    if (!shouldResetAndRetry) {
+      throw err;
+    }
+
+    resetPyodideWorker();
+    return executeOnce();
+  });
+}
+
+function sanitizeVisualizationPythonCode(code) {
+  if (!code) return "";
+
+  return code
+    // Prevent backend overrides from model output; worker enforces Agg.
+    .replace(/^\s*os\.environ\[['\"]MPLBACKEND['\"]\]\s*=.*$/gim, "")
+    .replace(/^\s*matplotlib\.use\(.*\)\s*$/gim, "")
+    .replace(/^\s*plt\.switch_backend\(.*\)\s*$/gim, "")
+    .replace(/^\s*%matplotlib.*$/gim, "")
+    .trim();
 }
 
 async function renderVisualization(aiText, wrapper, tabId) {
@@ -3212,7 +3319,9 @@ ${aiText}
       }
     }
 
-    if (!pythonCode || pythonCode.length < 10) {
+     pythonCode = sanitizeVisualizationPythonCode(pythonCode);
+
+     if (!pythonCode || pythonCode.length < 10) {
        throw new Error("The AI model failed to produce valid Python code. Please try again.");
     }
 

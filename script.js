@@ -1212,7 +1212,6 @@ el.clearSelBtn.addEventListener("click", (e) => {
 function cropSelectionToBase64() {
   const tmp = document.createElement("canvas");
   const ctx = tmp.getContext("2d");
-
   let source, naturalW, naturalH, displayW, displayH, offsetX, offsetY;
 
   if (state.fileType === "image") {
@@ -3085,7 +3084,7 @@ if not hasattr(mtext.Text, '_original_get_layout'):
         prev = None
         while prev != out:
             prev = out
-            out = re.sub(r'\\\\text\\{([^{}]*)\\}', r'\\1', out)
+        import numpy as np
         return out
     def safe_get_layout(self, renderer):
         try:

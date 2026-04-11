@@ -3059,7 +3059,10 @@ async function getPy() {
 
     try {
       // Inject monkey patch to gracefully swallow MathText Pyparsing errors on a per-label basis
+      // Also force 'Agg' backend to avoid DOM access in Web Worker
       const robustCode = \`
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.text as mtext
 if not hasattr(mtext.Text, '_original_get_layout'):
     mtext.Text._original_get_layout = mtext.Text._get_layout
@@ -3076,7 +3079,10 @@ if not hasattr(mtext.Text, '_original_get_layout'):
     } catch (innerErr) {
       if (innerErr.message && innerErr.message.includes("ParseFatalException")) {
         // Fallback: retry without LaTeX mapping to prevent visualization failing on mathtext parses
-        const fallbackCode = code.split("$").join("");
+        const fallbackCode = \`
+import matplotlib
+matplotlib.use('Agg')
+\` + "\\n" + code.split("$").join("");
         await py.runPythonAsync(fallbackCode);
       } else {
         throw innerErr;
@@ -3225,7 +3231,8 @@ ${aiText}
 
     const workerCode = `
 import os
-os.environ['MPLBACKEND'] = 'AGG'
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
 import math

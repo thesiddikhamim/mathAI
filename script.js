@@ -196,6 +196,7 @@ const AVAILABLE_MODELS = {
   ollama: [
     { id: "qwen3.5:cloud", label: "Qwen 3.5 Cloud" },
     { id: "qwen3.5:397b-cloud", label: "Qwen 3.5 397B" },
+    { id: "qwen3-coder:480b-cloud", label: "Qwen 3 Coder 480B" },
     { id: "gemma4:31b-cloud", label: "Gemma 4 31B" },
     { id: "kimi-k2.5:cloud", label: "Kimi K2.5" },
     { id: "llama3.2:latest", label: "Llama 3.2" }

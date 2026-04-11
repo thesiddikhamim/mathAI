@@ -3047,7 +3047,7 @@ async function getPy() {
   return await pyInit;
 }
 
-self.onmessage = async (e) => {
+  self.onmessage = async (e) => {
   const { id, code } = e.data;
   try {
     const py = await getPy();
@@ -3057,7 +3057,17 @@ self.onmessage = async (e) => {
       py.FS.unlink('output.png');
     }
 
-    await py.runPythonAsync(code);
+    try {
+      await py.runPythonAsync(code);
+    } catch (innerErr) {
+      if (innerErr.message && innerErr.message.includes("ParseFatalException")) {
+        // Retry without LaTeX mapping to prevent visualization failing on mathtext parses
+        const fallbackCode = code.split("$").join("");
+        await py.runPythonAsync(fallbackCode);
+      } else {
+        throw innerErr;
+      }
+    }
     
     if (py.FS.analyzePath('output.png').exists) {
       const imgData = py.FS.readFile('output.png');
@@ -3139,7 +3149,7 @@ Your task is to write a Python script using Matplotlib to visualize the ORIGINAL
 Rules:
 1. ONLY output valid Python code strictly enclosed in a \`\`\`python ... \`\`\` block. DO NOT use external libraries other than math, numpy, and matplotlib. No conversational text whatsoever.
 2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
-3. Add clear labels, annotations, or text to the shapes/graphs. ALL text and labels MUST be pure black ('#000000'). To format text nicely like "Computer Modern Italic Math", you MUST use Matplotlib's MathText for ALL labels and text by wrapping ALL strings in \`$\` (e.g. \`ax.text(0, 0, r"$Triangle$")\`). ALWAYS use python raw strings (r"...") for your texts and labels to avoid escape character errors with LaTeX commands like \\theta or \\text. Include \`plt.rcParams['mathtext.fontset'] = 'cm'\`. Do NOT attempt to load custom external fonts via \`font.family\`. Use standard italic variables conditionally where appropriate like r"$\\mathit{h-4}$". Avoid unsupported MathText expressions that break pyparsing.
+3. Add clear labels, annotations, or text to the shapes/graphs. ALL text and labels MUST be pure black ('#000000'). Do NOT wrap whole sentences or plain text in \`$\`. ONLY wrap actual math variables or equations in \`$\` (e.g., \`r"Length is $x$" \` instead of \`r"$Length is x$"\`). AVOID unsupported MathText LaTeX commands entirely (such as \\text, \\textbf, \\mathit, or unescaped \\ ) because they will crash the Pyparsing engine. Include \`plt.rcParams['mathtext.fontset'] = 'cm'\`. Do NOT attempt to load custom fonts.
 4. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
    - ALL strokes, edges, borders, and standalone lines MUST ALWAYS be pure black ('#000000') with a smooth, thick linewidth (e.g., linewidth=3.5).
    - Use different colors to fill the areas (facecolor) of shapes or graph regions so they can be easily distinguished. AI should choose beautiful, modern, better colors for filling. HOWEVER, only use fill or distinct colors WHERE APPLICABLE and NECESSARY to distinguish distinct elements. Do not over-color if unnecessary. 

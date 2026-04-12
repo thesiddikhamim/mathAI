@@ -33,6 +33,7 @@ const el = {
   visualizationView: $("visualizationView"),
   enableVisualization: $("enableVisualization"),
   visModelsWrapper: $("visModelsWrapper"),
+  blueprintModelsContainer: $("blueprintModelsContainer"),
   visModelsContainer: $("visModelsContainer"),
   visEnabledModelsContainer: $("visEnabledModelsContainer"),
 
@@ -149,6 +150,7 @@ const state = {
     groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
   },
   enableVisualization: false,
+  blueprintModelConfig: "ollama:qwen3.5:cloud",
   visModelConfig: "ollama:qwen3.5:cloud",
   visEnabledModels: ["gemini:gemini-3.1-pro-preview", "ollama:qwen3.5:cloud"],
   // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
@@ -356,7 +358,7 @@ function renderSettingsModels() {
     cb.addEventListener("change", e => {
       state.enabledProviders[e.target.dataset.provider] = e.target.checked;
       renderSettingsModels(); // re-render to show/hide models
-      renderVisModels(); renderVisEnabledModels(); // re-render visualization models list
+      renderBlueprintModels(); renderVisModels(); renderVisEnabledModels(); // re-render visualization models list
     });
   });
 
@@ -442,6 +444,65 @@ function renderVisEnabledModels() {
   });
 }
 
+function renderBlueprintModels() {
+  if (!el.blueprintModelsContainer) return;
+  el.blueprintModelsContainer.innerHTML = "";
+  
+  const providers = [
+    { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
+    { id: "ollama", name: "Ollama Cloud", icon: "ollama.svg" },
+    { id: "mistral", name: "Mistral AI", icon: "mistral.svg" },
+    { id: "groq", name: "Groq", icon: "groq.svg" }
+  ];
+
+  providers.forEach((p, index) => {
+    const isEnabled = state.enabledProviders[p.id];
+    if (isEnabled && AVAILABLE_MODELS[p.id]) {
+      const group = document.createElement("div");
+      group.className = "vis-provider-group";
+      group.style.marginBottom = "20px";
+      
+      const header = document.createElement("div");
+      header.className = "provider-header-left";
+      header.style.marginBottom = "10px";
+      header.innerHTML = `
+        <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="provider-logo" alt="${p.name}" style="width: 18px; height: 18px;" />
+        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">${p.name}</span>
+      `;
+      group.appendChild(header);
+      
+      const grid = document.createElement("div");
+      grid.className = "models-grid";
+      
+      AVAILABLE_MODELS[p.id].forEach(m => {
+        const val = p.id + ":" + m.id;
+        const isSelected = state.blueprintModelConfig === val;
+        
+        const lbl = document.createElement("label");
+        lbl.className = "model-checkbox-label";
+        
+        lbl.innerHTML = `
+          <input type="radio" name="blueprintModelGlobalRadio" class="model-radio" value="${val}" ${isSelected ? "checked" : ""}>
+          ${m.label}
+        `;
+        grid.appendChild(lbl);
+      });
+      
+      group.appendChild(grid);
+      el.blueprintModelsContainer.appendChild(group);
+    }
+  });
+
+  // Add event listeners for the radio buttons
+  el.blueprintModelsContainer.querySelectorAll(".model-radio").forEach(radio => {
+    radio.addEventListener("change", e => {
+      if (e.target.checked) {
+        state.blueprintModelConfig = e.target.value;
+      }
+    });
+  });
+}
+
 function renderVisModels() {
   if (!el.visModelsContainer) return;
   el.visModelsContainer.innerHTML = "";
@@ -516,7 +577,7 @@ function openSettings() {
     }
   }
   
-  renderVisModels(); renderVisEnabledModels();
+  renderBlueprintModels(); renderVisModels(); renderVisEnabledModels();
   
   renderSettingsModels();
   
@@ -636,6 +697,9 @@ el.saveKey.addEventListener("click", () => {
   if (state.visModelConfig) {
     localStorage.setItem("mathai-vis-model", state.visModelConfig);
     localStorage.setItem("mathai-vis-enabled", JSON.stringify(state.visEnabledModels));
+    if (state.blueprintModelConfig) {
+      localStorage.setItem("mathai-blueprint-model", state.blueprintModelConfig);
+    }
   }
 
   localStorage.setItem("mathai-enabled-providers", JSON.stringify(state.enabledProviders));
@@ -666,11 +730,12 @@ el.clearKey.addEventListener("click", () => {
   };
   
   state.enableVisualization = false;
+  state.blueprintModelConfig = "ollama:qwen3.5:cloud";
   state.visModelConfig = "ollama:qwen3.5:cloud";
   if (el.enableVisualization) el.enableVisualization.checked = false;
   
   renderSettingsModels();
-  renderVisModels(); renderVisEnabledModels();
+  renderBlueprintModels(); renderVisModels(); renderVisEnabledModels();
   
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
@@ -701,6 +766,7 @@ function loadSettings() {
   const activeTabId = localStorage.getItem("mathai-active-tab-id");
   const enableVis = localStorage.getItem("mathai-enable-vis");
   const visMod = localStorage.getItem("mathai-vis-model");
+  const bpMod = localStorage.getItem("mathai-blueprint-model");
   const visEnList = localStorage.getItem("mathai-vis-enabled");
 
   if (k) state.apiKey = k;
@@ -710,6 +776,7 @@ function loadSettings() {
   
   if (enableVis !== null) state.enableVisualization = enableVis === "true";
   if (visMod) state.visModelConfig = visMod;
+  if (bpMod) state.blueprintModelConfig = bpMod;
   if (visEnList) {
     try {
       state.visEnabledModels = JSON.parse(visEnList);
@@ -3130,11 +3197,24 @@ function runPythonInWorker(code) {
 
 async function renderVisualization(aiText, wrapper, tabId) {
   if (!state.enableVisualization) return;
-  if (!state.visModelConfig) return;
+  if (!state.visModelConfig || !state.blueprintModelConfig) return;
 
   // Check if visualization is enabled for the current chat model
   const modelToCheck = tabId || state.activeTabId;
   if (!state.visEnabledModels.includes(modelToCheck)) return;
+
+  const [blueprintProvider, blueprintModel] = state.blueprintModelConfig.split(":");
+  const blueprintProviderKey = {
+    gemini: state.apiKey,
+    groq: state.groqApiKey,
+    mistral: state.mistralApiKey,
+    ollama: state.ollamaApiKey,
+  }[blueprintProvider];
+
+  if (!blueprintProviderKey) {
+    console.warn("Skipping visualization: Missing API key for blueprint provider " + blueprintProvider);
+    return;
+  }
 
   const [visProvider, visModel] = state.visModelConfig.split(":");
   const providerKey = {
@@ -3149,59 +3229,98 @@ async function renderVisualization(aiText, wrapper, tabId) {
     return;
   }
 
-  // Add loading UI
+          // Add loading UI component reference function
+  const updateVisLoadingUI = (text) => {
+    visContainer.innerHTML = `
+      <div style="margin-top: 1.5rem; padding: 1rem; border: 1px dashed var(--border); border-radius: var(--radius-md); text-align: center; color: var(--text-secondary); background: var(--bg-tertiary);">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; width: 20px; height: 20px; vertical-align: -5px; margin-right: 8px;">
+          <path d="M21 12a9 9 0 11-6.219-8.56"></path>
+        </svg>
+        <span style="font-size: 14px; font-weight: 500;">${text}</span>
+      </div>
+    `;
+    scrollToBottom(true);
+  };
+
   const visContainer = document.createElement("div");
   visContainer.className = "vis-container";
-  visContainer.innerHTML = `
-    <div style="margin-top: 1.5rem; padding: 1rem; border: 1px dashed var(--border); border-radius: var(--radius-md); text-align: center; color: var(--text-secondary); background: var(--bg-tertiary);">
-      <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; width: 20px; height: 20px; vertical-align: -5px; margin-right: 8px;">
-        <path d="M21 12a9 9 0 11-6.219-8.56"></path>
-      </svg>
-      <span style="font-size: 14px; font-weight: 500;">Generating visualization script via ${visModel}...</span>
-    </div>
-  `;
   wrapper.appendChild(visContainer);
-  scrollToBottom(true);
+  updateVisLoadingUI(`Designing visualization blueprint via ${blueprintModel}...`);
 
-  const visPrompt = `You are an expert Python data visualization coder. I am providing you with the step-by-step solution to a math problem.
-Your task is to write a Python script using Matplotlib to visualize the ORIGINAL QUESTION and the INITIAL SETUP (e.g., shapes, angles, graphs, and the assigned variables like 'h' and 'h-4'). Do NOT visualize the final answer or the solving process—focus on illustrating the problem and how the variables are initially defined.
+  const blueprintPrompt = `You are an expert data visualization architect. I am providing you with the step-by-step solution to a math problem.
+Your task is to design a precise, step-by-step architectural blueprint for visualizing the ORIGINAL QUESTION and the INITIAL SETUP (e.g., shapes, angles, graphs, equations). Do NOT visualize the final answer. 
+
+Do NOT write Python code. Only output a structured, detailed text instruction describing:
+1. What geometric shapes, functions, or graphs to draw.
+2. Exact or relative coordinates/dimensions to use to make it mathematically accurate.
+3. What labels, variables, or math symbols to place and exactly where.
+IMPORTANT: Do NOT give any instructions regarding colors, strokes, linewidths, fonts, or aesthetics. Only focus on the mathematical and structural layout.
+
+Here is the context:
+${aiText}
+`;
+
+  let visBlueprintText = "";
+  try {
+    const noop = () => {};
+    // Call AI to get the blueprint
+    if (blueprintProvider === "gemini") {
+      const chatHist = [{ role: "user", parts: [{ text: blueprintPrompt }] }];
+      visBlueprintText = await callGeminiChat(chatHist, blueprintProviderKey, blueprintModel, noop);
+    } else if (blueprintProvider === "groq") {
+      visBlueprintText = await callGroqFollowUp([{ role: "user", content: blueprintPrompt }], blueprintProviderKey, blueprintModel, noop);
+    } else if (blueprintProvider === "mistral") {
+      visBlueprintText = await callMistralFollowUp([{ role: "user", content: blueprintPrompt }], blueprintProviderKey, blueprintModel, noop);
+    } else if (blueprintProvider === "ollama") {
+      visBlueprintText = await callOllamaFollowUp([{ role: "user", content: blueprintPrompt }], blueprintProviderKey, blueprintModel, noop);
+    }
+
+    if (!visBlueprintText || visBlueprintText.length < 10) {
+       throw new Error("The AI model failed to produce a valid visualization blueprint. Please try again.");
+    }
+
+    // STEP 3: The Python Coder
+    updateVisLoadingUI(`Writing Matplotlib code via ${visModel}...`);
+
+    const coderPrompt = `You are an expert Python data visualization coder. I am providing you with a detailed architectural blueprint for a math visualization.
+Your task is to write a Python script using Matplotlib to implement this exact blueprint.
+
+Blueprint:
+${visBlueprintText}
 
 Rules:
 1. ONLY output valid Python code strictly enclosed in a \`\`\`python ... \`\`\` block. DO NOT use external libraries other than math, numpy, and matplotlib. No conversational text whatsoever.
 2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
-3. Add clear labels, annotations, or text to the shapes/graphs. ALL text and labels MUST be pure black ('#000000'). To get the math font aesthetic without crashes, include these rcParams at the start of your code: \`plt.rcParams['mathtext.fontset'] = 'cm'\`, \`plt.rcParams['font.family'] = 'serif'\`, and \`plt.rcParams['font.style'] = 'italic'\`. ALWAYS use \`$\` for math variables, equations, and math symbols (e.g., \`r"$\\triangle ABC$"\`, \`r"Area = $x^2$"\`, \`r"$\\theta$"\`). Regular English text should NOT be wrapped in \`$\` (e.g., \`r"Length is $x$"\`). AVOID unsupported MathText LaTeX commands entirely (such as \\text, \\textbf, or unescaped \\) to prevent Pyparsing ParseFatalException. Do NOT attempt to load custom fonts.
+3. Add clear labels, annotations, or text to the shapes/graphs. ALL text and labels MUST be pure black ('#000000'). To get the math font aesthetic without crashes, include these rcParams at the start of your code: \`plt.rcParams['mathtext.fontset'] = 'cm'\`, \`plt.rcParams['font.family'] = 'serif'\`, and \`plt.rcParams['font.style'] = 'italic'\`. ALWAYS use $ for math variables, equations, and math symbols (e.g., \`r"$\triangle ABC$"\`, \`r"Area = $x^2$"\`, \`r"$\theta$"\`). Regular English text should NOT be wrapped in $ (e.g., \`r"Length is $x$"\`). AVOID unsupported MathText LaTeX commands entirely. Do NOT attempt to load custom fonts.
 4. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
-   - ALL strokes, edges, borders, and standalone lines MUST ALWAYS be pure black ('#000000') with a smooth, thick linewidth (e.g., linewidth=3.5).
-   - Use different colors to fill the areas (facecolor) of shapes or graph regions so they can be easily distinguished. AI should choose beautiful, modern, better colors for filling. HOWEVER, only use fill or distinct colors WHERE APPLICABLE and NECESSARY to distinguish distinct elements. Do not over-color if unnecessary. 
-   - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines in black and make them slightly faded.
-   - Text labels should be large (fontsize=14+) and strictly pure black. Do NOT color the text.
+   - ALL strokes, edges, borders, and standalone lines MUST be pure black ('#000000') or dark gray depending on the situation, with a smooth linewidth (e.g., linewidth=2.5 or 3).
+   - Use different beautiful, modern colors to fill the areas (using facecolor and alpha) of distinct shapes or graph regions so they can be easily distinguished. Use these fill colors to separate different structures.
+   - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines in dark gray and make them slightly faded.
+   - Text labels should be appropriately sized (fontsize=12 to 14) and strictly pure black. Do NOT color the text.
+   - Ensure texts do NOT collide with each other or with lines. Use clever positioning, offsets, and padding to keep them legible. It is okay if text is placed over a colored fill, but it MUST NOT intersect or overlap with strokes, lines, or edges. Do NOT use background boxes (bboxes) for text.
+   - If there are multiple distinct objects/shapes, leave a visible spatial gap between them so they don't collide or overlap, unless they are mathematically connected.
 5. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().
-
-Problem Breakdown Context:
-${aiText}
 `;
 
-  let visCodeText = "";
-  try {
-    const noop = () => {};
+    let visCodeText = "";
     if (visProvider === "gemini") {
-      const chatHist = [{ role: "user", parts: [{ text: visPrompt }] }];
+      const chatHist = [{ role: "user", parts: [{ text: coderPrompt }] }];
       visCodeText = await callGeminiChat(chatHist, providerKey, visModel, noop);
     } else if (visProvider === "groq") {
-      visCodeText = await callGroqFollowUp([{ role: "user", content: visPrompt }], providerKey, visModel, noop);
+      visCodeText = await callGroqFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
     } else if (visProvider === "mistral") {
-      visCodeText = await callMistralFollowUp([{ role: "user", content: visPrompt }], providerKey, visModel, noop);
+      visCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
     } else if (visProvider === "ollama") {
-      visCodeText = await callOllamaFollowUp([{ role: "user", content: visPrompt }], providerKey, visModel, noop);
+      visCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
     }
     
     // Extract Python code
     let pythonCode = "";
     // Match any markdown code block, optional language tag
     const pyRegex = /\`\`\`(?:[a-zA-Z]*)\n([\s\S]*?)\`\`\`/;
-    const match = pyRegex.exec(visCodeText);
-    if (match && match[1].trim().length > 0) {
-      pythonCode = match[1].trim();
+    const pyMatch = pyRegex.exec(visCodeText);
+    if (pyMatch && pyMatch[1].trim().length > 0) {
+      pythonCode = pyMatch[1].trim();
     } else {
       // Fallback if no code formatting used
       const startIdx = visCodeText.indexOf("import ");
@@ -3212,19 +3331,20 @@ ${aiText}
       }
     }
 
-    if (!pythonCode || pythonCode.length < 10) {
+function sanitizeVisualizationPythonCode(code) {
+  if (!code) return "";
+  let cleanCode = code.replace(/\`\`\`(python|py)?/gi, "").replace(/\`\`\`/g, "").trim();
+  cleanCode = cleanCode.split('\\n').filter(line => !line.trim().startsWith('!pip ')).join('\\n');
+  return cleanCode;
+}
+
+     pythonCode = sanitizeVisualizationPythonCode(pythonCode);
+
+     if (!pythonCode || pythonCode.length < 10) {
        throw new Error("The AI model failed to produce valid Python code. Please try again.");
     }
 
-    visContainer.innerHTML = `
-      <div style="margin-top: 1.5rem; padding: 1rem; border: 1px dashed var(--border); border-radius: var(--radius-md); text-align: center; color: var(--text-secondary); background: var(--bg-tertiary);">
-        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; width: 20px; height: 20px; vertical-align: -5px; margin-right: 8px;">
-          <path d="M21 12a9 9 0 11-6.219-8.56"></path>
-        </svg>
-        <span style="font-size: 14px; font-weight: 500;">Running Python in Pyodide...</span>
-      </div>
-    `;
-    scrollToBottom(true);
+    updateVisLoadingUI("Running Python in Pyodide...");
     
     // Give minimum delay for browser to render the loading view
     await new Promise(r => setTimeout(r, 100));

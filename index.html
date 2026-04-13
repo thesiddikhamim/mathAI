@@ -41,8 +41,7 @@
     <!-- html2pdf -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 
-    <!-- Pyodide -->
-    <script src="https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js"></script>
+    <!-- (TikZ will be rendered directly via API) -->
 
     <link rel="stylesheet" href="style.css" />
   </head>
@@ -163,7 +162,7 @@
                     <circle cx="8.5" cy="8.5" r="1.5"/>
                     <polyline points="21 15 16 10 5 21"/>
                   </svg>
-                  <span style="font-weight: 500;">Enable AI Visualization (Pyodide)</span>
+                  <span style="font-weight: 500;">Enable AI Visualization (TikZ)</span>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="enableVisualization" />
@@ -171,7 +170,7 @@
                 </label>
               </div>
               <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
-                Uses a specialized coding model to seamlessly write and run Python Matplotlib scripts locally in your browser via WebAssembly, rendering a transparent shape/geometry map for your math setup.
+                Uses a specialized coding model to seamlessly write and render LaTeX TikZ diagrams locally in your browser via WebAssembly for textbook-quality shapes and geometry setup.
               </p>
             </div>
             
@@ -197,7 +196,7 @@
                   2. Model for Code Generation
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
-                  Pick the model that will be used to generate Python Matplotlib code for visualization.
+                  Pick the model that will be used to generate LaTeX TikZ code for visualization.
                 </p>
                 <div id="visModelsContainer">
                   <!-- Populated via JS -->

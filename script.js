@@ -3279,27 +3279,22 @@ ${aiText}
        throw new Error("The AI model failed to produce a valid visualization blueprint. Please try again.");
     }
 
-    // STEP 3: The Python Coder
-    updateVisLoadingUI(`Writing Matplotlib code via ${visModel}...`);
+    // STEP 3: The TikZ Coder
+    updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
 
-    const coderPrompt = `You are an expert Python data visualization coder. I am providing you with a detailed architectural blueprint for a math visualization.
-Your task is to write a Python script using Matplotlib to implement this exact blueprint.
+    const coderPrompt = `You are an expert LaTeX TikZ visualization coder. I am providing you with a detailed architectural blueprint for a math visualization.
+Your task is to write a TikZ script using LaTeX to implement this exact blueprint.
 
 Blueprint:
 ${visBlueprintText}
 
 Rules:
-1. ONLY output valid Python code strictly enclosed in a \`\`\`python ... \`\`\` block. DO NOT use external libraries other than math, numpy, and matplotlib. No conversational text whatsoever.
-2. The plot MUST use \`fig.patch.set_alpha(0)\` and \`ax.patch.set_alpha(0)\` for a completely transparent background.
-3. Add clear labels, annotations, or text to the shapes/graphs. ALL text and labels MUST be pure black ('#000000'). To get the math font aesthetic without crashes, include these rcParams at the start of your code: \`plt.rcParams['mathtext.fontset'] = 'cm'\`, \`plt.rcParams['font.family'] = 'serif'\`, and \`plt.rcParams['font.style'] = 'italic'\`. ALWAYS use $ for math variables, equations, and math symbols (e.g., \`r"$\triangle ABC$"\`, \`r"Area = $x^2$"\`, \`r"$\theta$"\`). Regular English text should NOT be wrapped in $ (e.g., \`r"Length is $x$"\`). AVOID unsupported MathText LaTeX commands entirely. Do NOT attempt to load custom fonts.
-4. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
-   - ALL strokes, edges, borders, and standalone lines MUST be pure black ('#000000') or dark gray depending on the situation, with a smooth linewidth (e.g., linewidth=2.5 or 3).
-   - Use different beautiful, modern colors to fill the areas (using facecolor and alpha) of distinct shapes or graph regions so they can be easily distinguished. Use these fill colors to separate different structures.
-   - If plotting geometry, turn off axes (\`ax.axis('off')\`). If plotting graphs, only show bottom/left spines in dark gray and make them slightly faded.
-   - Text labels should be appropriately sized (fontsize=12 to 14) and strictly pure black. Do NOT color the text.
-   - Ensure texts do NOT collide with each other or with lines. Use clever positioning, offsets, and padding to keep them legible. It is okay if text is placed over a colored fill, but it MUST NOT intersect or overlap with strokes, lines, or edges. Do NOT use background boxes (bboxes) for text.
-   - If there are multiple distinct objects/shapes, leave a visible spatial gap between them so they don't collide or overlap, unless they are mathematically connected.
-5. Save the figure as 'output.png' using \`plt.savefig('output.png', transparent=True)\`. Do NOT use plt.show().
+1. ONLY output valid TikZ code strictly enclosed in a \`\\\`\\\`latex ... \`\\\`\\\` block. DO NOT output document preamble like \\documentclass. Your code MUST start exactly with \\begin{tikzpicture} and end exactly with \\end{tikzpicture}. No conversational text whatsoever.
+2. Add clear labels, annotations, or nodes. Standard math typography (using $) is allowed and encouraged.
+3. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
+   - Make lines relatively thick and legible.
+   - Use soft and modern fill colors for shapes. Give shapes opacity (e.g. fill=blue!20).
+   - Ensure node texts do NOT collide with each other or with lines. Use positioning anchors correctly.
 `;
 
     let visCodeText = "";
@@ -3314,75 +3309,64 @@ Rules:
       visCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
     }
     
-    // Extract Python code
-    let pythonCode = "";
-    // Match any markdown code block, optional language tag
-    const pyRegex = /\`\`\`(?:[a-zA-Z]*)\n([\s\S]*?)\`\`\`/;
-    const pyMatch = pyRegex.exec(visCodeText);
-    if (pyMatch && pyMatch[1].trim().length > 0) {
-      pythonCode = pyMatch[1].trim();
+    // Extract TikZ code
+    let tikzCode = "";
+    const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
+    const tikzMatch = tikzRegex.exec(visCodeText);
+    if (tikzMatch && tikzMatch[1].trim().length > 0) {
+      tikzCode = tikzMatch[1].trim();
     } else {
-      // Fallback if no code formatting used
-      const startIdx = visCodeText.indexOf("import ");
-      if (startIdx !== -1) {
-          pythonCode = visCodeText.substring(startIdx).replace(/\`\`\`/g, "").trim();
+      const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
+      const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
+      if (beginIdx !== -1 && endIdx !== -1) {
+          tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
       } else {
-          pythonCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
+          tikzCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
       }
     }
 
-function sanitizeVisualizationPythonCode(code) {
-  if (!code) return "";
-  let cleanCode = code.replace(/\`\`\`(python|py)?/gi, "").replace(/\`\`\`/g, "").trim();
-  cleanCode = cleanCode.split('\\n').filter(line => !line.trim().startsWith('!pip ')).join('\\n');
-  return cleanCode;
-}
-
-     pythonCode = sanitizeVisualizationPythonCode(pythonCode);
-
-     if (!pythonCode || pythonCode.length < 10) {
-       throw new Error("The AI model failed to produce valid Python code. Please try again.");
+    if (!tikzCode || !tikzCode.includes("\\begin{tikzpicture}")) {
+       throw new Error("The AI model failed to produce valid TikZ code. Please try again.");
     }
 
-    updateVisLoadingUI("Running Python in Pyodide...");
+    updateVisLoadingUI("Rendering TikZ via Web API...");
     
-    // Give minimum delay for browser to render the loading view
-    await new Promise(r => setTimeout(r, 100));
+    const printCode = `\\documentclass[tikz,border=2pt]{standalone}
+\\usepackage{amsmath}
+\\usepackage{amssymb}
+\\begin{document}
+${tikzCode}
+\\end{document}`;
 
-    const workerCode = `
-import os
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-import numpy as np
-import math
+    const svgResp = await fetch("https://kroki.io/tikz/svg", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: printCode,
+      // optional short timeout
+    });
 
-plt.show = lambda *args, **kwargs: None
-plt.rcParams['mathtext.fontset'] = 'cm'
-plt.rcParams['font.family'] = 'serif'
-plt.close('all')
+    if (!svgResp.ok) {
+      throw new Error("TikZ compilation error: Server returned " + svgResp.status);
+    }
+    
+    const svgText = await svgResp.text();
 
-${pythonCode}
+    const visualDiv = document.createElement("div");
+    visualDiv.style.cssText = "margin-top: 1.5rem; text-align: center; overflow-x: auto; background: transparent;";
+    
+    visualDiv.innerHTML = svgText;
+    
+    // adjust SVG max size so it doesn't break chat layout
+    const svgEl = visualDiv.querySelector("svg");
+    if(svgEl) {
+       svgEl.style.maxWidth = "100%";
+       svgEl.style.height = "auto";
+    }
 
-# Always attempt to save even if the user script forgot the savefig command
-if not os.path.exists('output.png'):
-    try:
-        plt.savefig('output.png', transparent=True, bbox_inches='tight')
-    except Exception:
-        plt.savefig('output.png', transparent=True)
-`;
+    visContainer.innerHTML = ""; // Clear loading state
+    visContainer.appendChild(visualDiv);
 
-    // Execute via Pyodide Web Worker
-    const imgData = await runPythonInWorker(workerCode);
-    const blob = new Blob([imgData], { type: 'image/png' });
-    const blobUrl = URL.createObjectURL(blob);
-      
-      visContainer.innerHTML = `
-        <div style="margin-top: 1.5rem; text-align: center;">
-          <img src="${blobUrl}" alt="Mathematical Visualization" style="max-width: 100%; height: auto; border-radius: var(--radius-sm); filter: drop-shadow(0 4px 12px rgba(0,0,0,0.15));" />
-        </div>
-      `;
-      scrollToBottom(true);
+    scrollToBottom(true);
 
   } catch (err) {
     console.error("Visualization error:", err);

@@ -33,7 +33,6 @@ const el = {
   visualizationView: $("visualizationView"),
   enableVisualization: $("enableVisualization"),
   visModelsWrapper: $("visModelsWrapper"),
-  blueprintModelsContainer: $("blueprintModelsContainer"),
   visModelsContainer: $("visModelsContainer"),
   visEnabledModelsContainer: $("visEnabledModelsContainer"),
 
@@ -150,7 +149,6 @@ const state = {
     groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
   },
   enableVisualization: false,
-  blueprintModelConfig: "ollama:qwen3.5:cloud",
   visModelConfig: "ollama:qwen3.5:cloud",
   visEnabledModels: ["gemini:gemini-3.1-pro-preview", "ollama:qwen3.5:cloud"],
   // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
@@ -358,7 +356,7 @@ function renderSettingsModels() {
     cb.addEventListener("change", e => {
       state.enabledProviders[e.target.dataset.provider] = e.target.checked;
       renderSettingsModels(); // re-render to show/hide models
-      renderBlueprintModels(); renderVisModels(); renderVisEnabledModels(); // re-render visualization models list
+      renderVisModels(); renderVisEnabledModels(); // re-render visualization models list
     });
   });
 
@@ -444,64 +442,7 @@ function renderVisEnabledModels() {
   });
 }
 
-function renderBlueprintModels() {
-  if (!el.blueprintModelsContainer) return;
-  el.blueprintModelsContainer.innerHTML = "";
-  
-  const providers = [
-    { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
-    { id: "ollama", name: "Ollama Cloud", icon: "ollama.svg" },
-    { id: "mistral", name: "Mistral AI", icon: "mistral.svg" },
-    { id: "groq", name: "Groq", icon: "groq.svg" }
-  ];
 
-  providers.forEach((p, index) => {
-    const isEnabled = state.enabledProviders[p.id];
-    if (isEnabled && AVAILABLE_MODELS[p.id]) {
-      const group = document.createElement("div");
-      group.className = "vis-provider-group";
-      group.style.marginBottom = "20px";
-      
-      const header = document.createElement("div");
-      header.className = "provider-header-left";
-      header.style.marginBottom = "10px";
-      header.innerHTML = `
-        <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="provider-logo" alt="${p.name}" style="width: 18px; height: 18px;" />
-        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">${p.name}</span>
-      `;
-      group.appendChild(header);
-      
-      const grid = document.createElement("div");
-      grid.className = "models-grid";
-      
-      AVAILABLE_MODELS[p.id].forEach(m => {
-        const val = p.id + ":" + m.id;
-        const isSelected = state.blueprintModelConfig === val;
-        
-        const lbl = document.createElement("label");
-        lbl.className = "model-checkbox-label";
-        
-        lbl.innerHTML = `
-          <input type="radio" name="blueprintModelGlobalRadio" class="model-radio" value="${val}" ${isSelected ? "checked" : ""}>
-          ${m.label}
-        `;
-        grid.appendChild(lbl);
-      });
-      
-      group.appendChild(grid);
-      el.blueprintModelsContainer.appendChild(group);
-    }
-  });
-
-  // Add event listeners for the radio buttons
-  el.blueprintModelsContainer.querySelectorAll(".model-radio").forEach(radio => {
-    radio.addEventListener("change", e => {
-      if (e.target.checked) {
-        state.blueprintModelConfig = e.target.value;
-      }
-    });
-  });
-}
 
 function renderVisModels() {
   if (!el.visModelsContainer) return;
@@ -577,7 +518,7 @@ function openSettings() {
     }
   }
   
-  renderBlueprintModels(); renderVisModels(); renderVisEnabledModels();
+  renderVisModels(); renderVisEnabledModels();
   
   renderSettingsModels();
   
@@ -697,9 +638,6 @@ el.saveKey.addEventListener("click", () => {
   if (state.visModelConfig) {
     localStorage.setItem("mathai-vis-model", state.visModelConfig);
     localStorage.setItem("mathai-vis-enabled", JSON.stringify(state.visEnabledModels));
-    if (state.blueprintModelConfig) {
-      localStorage.setItem("mathai-blueprint-model", state.blueprintModelConfig);
-    }
   }
 
   localStorage.setItem("mathai-enabled-providers", JSON.stringify(state.enabledProviders));
@@ -730,12 +668,11 @@ el.clearKey.addEventListener("click", () => {
   };
   
   state.enableVisualization = false;
-  state.blueprintModelConfig = "ollama:qwen3.5:cloud";
   state.visModelConfig = "ollama:qwen3.5:cloud";
   if (el.enableVisualization) el.enableVisualization.checked = false;
   
   renderSettingsModels();
-  renderBlueprintModels(); renderVisModels(); renderVisEnabledModels();
+  renderVisModels(); renderVisEnabledModels();
   
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
@@ -766,7 +703,6 @@ function loadSettings() {
   const activeTabId = localStorage.getItem("mathai-active-tab-id");
   const enableVis = localStorage.getItem("mathai-enable-vis");
   const visMod = localStorage.getItem("mathai-vis-model");
-  const bpMod = localStorage.getItem("mathai-blueprint-model");
   const visEnList = localStorage.getItem("mathai-vis-enabled");
 
   if (k) state.apiKey = k;
@@ -776,7 +712,6 @@ function loadSettings() {
   
   if (enableVis !== null) state.enableVisualization = enableVis === "true";
   if (visMod) state.visModelConfig = visMod;
-  if (bpMod) state.blueprintModelConfig = bpMod;
   if (visEnList) {
     try {
       state.visEnabledModels = JSON.parse(visEnList);
@@ -3197,24 +3132,11 @@ function runPythonInWorker(code) {
 
 async function renderVisualization(aiText, wrapper, tabId) {
   if (!state.enableVisualization) return;
-  if (!state.visModelConfig || !state.blueprintModelConfig) return;
+  if (!state.visModelConfig) return;
 
   // Check if visualization is enabled for the current chat model
   const modelToCheck = tabId || state.activeTabId;
   if (!state.visEnabledModels.includes(modelToCheck)) return;
-
-  const [blueprintProvider, blueprintModel] = state.blueprintModelConfig.split(":");
-  const blueprintProviderKey = {
-    gemini: state.apiKey,
-    groq: state.groqApiKey,
-    mistral: state.mistralApiKey,
-    ollama: state.ollamaApiKey,
-  }[blueprintProvider];
-
-  if (!blueprintProviderKey) {
-    console.warn("Skipping visualization: Missing API key for blueprint provider " + blueprintProvider);
-    return;
-  }
 
   const [visProvider, visModel] = state.visModelConfig.split(":");
   const providerKey = {
@@ -3245,56 +3167,29 @@ async function renderVisualization(aiText, wrapper, tabId) {
   const visContainer = document.createElement("div");
   visContainer.className = "vis-container";
   wrapper.appendChild(visContainer);
-  updateVisLoadingUI(`Designing visualization blueprint via ${blueprintModel}...`);
-
-  const blueprintPrompt = `You are an expert data visualization architect. I am providing you with the step-by-step solution to a math problem.
-Your task is to design a precise, step-by-step architectural blueprint for visualizing the ORIGINAL QUESTION and the INITIAL SETUP (e.g., shapes, angles, graphs, equations). Do NOT visualize the final answer. 
-
-Do NOT write Python code. Only output a structured, detailed text instruction describing:
-1. What geometric shapes, functions, or graphs to draw.
-2. Exact or relative coordinates/dimensions to use to make it mathematically accurate.
-3. What labels, variables, or math symbols to place and exactly where.
-IMPORTANT: Do NOT give any instructions regarding colors, strokes, linewidths, fonts, or aesthetics. Only focus on the mathematical and structural layout.
-
-Here is the context:
-${aiText}
-`;
-
-  let visBlueprintText = "";
   try {
     const noop = () => {};
-    // Call AI to get the blueprint
-    if (blueprintProvider === "gemini") {
-      const chatHist = [{ role: "user", parts: [{ text: blueprintPrompt }] }];
-      visBlueprintText = await callGeminiChat(chatHist, blueprintProviderKey, blueprintModel, noop);
-    } else if (blueprintProvider === "groq") {
-      visBlueprintText = await callGroqFollowUp([{ role: "user", content: blueprintPrompt }], blueprintProviderKey, blueprintModel, noop);
-    } else if (blueprintProvider === "mistral") {
-      visBlueprintText = await callMistralFollowUp([{ role: "user", content: blueprintPrompt }], blueprintProviderKey, blueprintModel, noop);
-    } else if (blueprintProvider === "ollama") {
-      visBlueprintText = await callOllamaFollowUp([{ role: "user", content: blueprintPrompt }], blueprintProviderKey, blueprintModel, noop);
-    }
 
-    if (!visBlueprintText || visBlueprintText.length < 10) {
-       throw new Error("The AI model failed to produce a valid visualization blueprint. Please try again.");
-    }
-
-    // STEP 3: The TikZ Coder
+    // Generate TikZ directly from the main content
     updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
 
-    const coderPrompt = `You are an expert LaTeX TikZ visualization coder. I am providing you with a detailed architectural blueprint for a math visualization.
-Your task is to write a TikZ script using LaTeX to implement this exact blueprint.
+    const coderPrompt = `You are an expert LaTeX TikZ visualization coder. I am providing you with the step-by-step solution to a math problem.
+Your task is to design a precise, publication-quality mathematical visualization for the ORIGINAL QUESTION and INITIAL SETUP (including variables, quation and all the steps to solve it) using TikZ. Do NOT visualize the final answer.
 
-Blueprint:
-${visBlueprintText}
+Context:
+${aiText}
 
-Rules:
-1. ONLY output valid TikZ code strictly enclosed in a \`\\\`\\\`latex ... \`\\\`\\\` block. DO NOT output document preamble like \\documentclass. Your code MUST start exactly with \\begin{tikzpicture} and end exactly with \\end{tikzpicture}. No conversational text whatsoever.
-2. Add clear labels, annotations, or nodes. Standard math typography (using $) is allowed and encouraged.
-3. USE A CONSISTENT, CLEAR AESTHETIC FOR VISUALS:
-   - Make lines relatively thick and legible.
-   - Use soft and modern fill colors for shapes. Give shapes opacity (e.g. fill=blue!20).
-   - Ensure node texts do NOT collide with each other or with lines. Use positioning anchors correctly.
+Rules for University-Level Textbook Aesthetics:
+1. STRICT FORMATTING: ONLY output valid TikZ code enclosed in a \`\`\`latex ... \`\`\` block. NO document preamble (no \\documentclass). MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}. No conversational text.
+2. PROFESSIONAL STYLING:
+   - Typography: All mathematical variables, expressions, and axis labels MUST be wrapped in $...$ to ensure beautiful LaTeX math font rendering.
+   - Colors: Use elegant, academic colors (e.g., solid black for primary lines, dark gray for grids/axes, deep blue/red for emphasis). Avoid bright neon colors.
+   - Fills: When shading areas, use subtle tints with low opacity (e.g., \`fill=black!10\`, \`fill=blue!10\`).
+   - Line Weights: Use \`thick\` (0.8pt) for primary geometric outlines/functions, and \`thin\` or \`dashed\` for auxiliary lines, grids, or projections.
+3. PRECISION & LAYOUT:
+   - Proper Arrows: Use \`>=stealth\` or \`>=latex\` for standard mathematical arrowheads on axes or vectors.
+   - Labels: Position text cleanly using positioning anchors (e.g., \`above left\`, \`below right\`) so it NEVER overlaps with lines.
+   - Scale: Ensure geometric proportions are logically sound and properly spaced.
 `;
 
     let visCodeText = "";
@@ -3311,18 +3206,21 @@ Rules:
     
     // Extract TikZ code
     let tikzCode = "";
-    const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
-    const tikzMatch = tikzRegex.exec(visCodeText);
-    if (tikzMatch && tikzMatch[1].trim().length > 0) {
-      tikzCode = tikzMatch[1].trim();
+    
+    // Always prefer explicit begin/end environment to strip preamble if AI added one
+    const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
+    const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
+    
+    if (beginIdx !== -1 && endIdx !== -1) {
+        tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
     } else {
-      const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
-      const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
-      if (beginIdx !== -1 && endIdx !== -1) {
-          tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
-      } else {
+        const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
+        const tikzMatch = tikzRegex.exec(visCodeText);
+        if (tikzMatch && tikzMatch[1].trim().length > 0) {
+          tikzCode = tikzMatch[1].trim();
+        } else {
           tikzCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
-      }
+        }
     }
 
     if (!tikzCode || !tikzCode.includes("\\begin{tikzpicture}")) {
@@ -3331,11 +3229,14 @@ Rules:
 
     updateVisLoadingUI("Rendering TikZ via Web API...");
     
+    let safeTikz = tikzCode.replace(/\\documentclass.*?\n/g, '').replace(/\\usepackage.*?\n/g, '').replace(/\\begin{document}/g, '').replace(/\\end{document}/g, '');
     const printCode = `\\documentclass[tikz,border=2pt]{standalone}
 \\usepackage{amsmath}
 \\usepackage{amssymb}
+\\usepackage{xcolor}
+\\usetikzlibrary{calc,angles,quotes,intersections,positioning,arrows.meta,decorations.markings,backgrounds}
 \\begin{document}
-${tikzCode}
+${safeTikz}
 \\end{document}`;
 
     const svgResp = await fetch("https://kroki.io/tikz/svg", {
@@ -3346,7 +3247,10 @@ ${tikzCode}
     });
 
     if (!svgResp.ok) {
-      throw new Error("TikZ compilation error: Server returned " + svgResp.status);
+      const errText = await svgResp.text();
+      console.error("Kroki Error Response:", errText);
+      const cleanErr = errText.split("\n").slice(0, 5).join(" ").replace(/</g, "&lt;");
+      throw new Error("TikZ compilation error:\n" + cleanErr);
     }
     
     const svgText = await svgResp.text();

@@ -1,19 +1,55 @@
-## Ollama
-The ollama model is based on corsproxy.io. I don't know how it actually works and what is this. Later AI make ollama.js for vercel proxy. Then it doesn't need corsproxy.io
+# ∑ MathAI — AI-Powered Math Solver
 
+MathAI is an intelligent, responsive web application that allows users to seamlessly extract mathematical problems from images or PDFs and generate highly detailed, step-by-step solutions using leading AI models.
 
-### AI problem says 
-The reason you are seeing "Failed to fetch" is due to a strict browser security mechanism called CORS (Cross-Origin Resource Sharing) enforced by Ollama's cloud servers.
+Built entirely as a client-side application (with a lightweight API proxy), MathAI brings textbook-quality explanations and vector-based mathematical diagrams directly to your browser.
 
-Here is exactly what is happening under the hood:
+## ✨ Features
 
-When your JavaScript in the browser attempts to contact https://ollama.com/api/chat, it doesn't send the request right away.
-The browser is legally required by CORS rules to first send a "Pre-flight Request" (an OPTIONS method) without your API key to ask Ollama's server: "Do you allow requests from this HTML webpage?"
-Because Ollama's Cloud API requires an API key for all connections, their server instantly rejects this preflight check with a 401 Unauthorized error instead of sending the Access-Control-Allow-Origin approval.
-As a result, your browser panics, kills the connection to protect you, and throws a Failed to fetch error.
-Why does it work in Python, cURL, or Node.js? Desktop programming languages and terminal tools like cURL or Node.js completely ignore browser CORS security policies. They just blast the request directly to Ollama. The documentation you read assumes you rely on the Node SDK logic.
+- **Multi-Modal AI Solving:** Select an area of an image or PDF, and AI will interpret the math problem and provide a structured, step-by-step explanation.
+- **Provider Support:** Seamlessly switch between multiple AI providers:
+  - **Gemini** (Google)
+  - **Groq** (Llama variants)
+  - **Mistral** (Pixtral/Mistral variants)
+  - **Ollama Cloud** (Qwen variants)
+- **Publication-Quality Visualizations:** MathAI dynamically prompts the AI to generate **LaTeX TikZ** code for geometric setups, graphs, and physics diagrams. These diagrams are compiled instantly via the [Kroki API](https://kroki.io) into crisp, scalable SVG vector graphics directly in the chat!
+- **LaTeX Math Rendering:** All equations are safely rendered in real-time using [KaTeX](https://katex.org/), ensuring professional typographical standards (e.g., $E=mc^2$).
+- **PDF Export:** Click a single button to cleanly export your AI-generated solution and crop-region into an elegant, styled PDF report.
+- **Dark/Light Mode:** Full theming support.
 
-How do we get around this?
-Because this is a pure, server-less HTML/JS app running in your browser, you have two options to bypass this:
+## 🚀 How it Works
 
-Option A (Temporary but easy): Use a CORS proxy We can route the Ollama requests through a free, public CORS proxy (like corsproxy.io). It will intercept your browser's check, apply the correct headers, and forward the data to Ollama. (Warning: This means your API key momentarily passes through the proxy server. It is safe for quick testing, but bad for production.)
+1. **Upload:** Drag and drop an image or PDF containing a math or physics problem.
+2. **Select:** Draw a bounding box around the specific problem you want solved.
+3. **Solve:** Select your preferred AI model. The app extracts the crop, passes it to the Vision-capable AI, and streams a structured markdown response.
+4. **Visualize:** If enabled, the AI will write a `.tikz` graphics payload representing the problem's mathematical setup. The app strips the structural context safely, compiles the TikZ script via a fast Web API, and renders an SVG.
+
+## 🛠️ Setup & Installation
+
+Since MathAI is primarily a frontend application, you just need to serve the files. It includes a serverless function (`api/ollama.js`) to handle CORS for Ollama's cloud API.
+
+### Local Development (Vercel CLI)
+
+To test locally (including proxying the Ollama endpoints properly to bypass CORS):
+
+```bash
+# 1. Install the Vercel CLI globally
+npm i -g vercel
+
+# 2. Run the local dev server
+vercel dev
+```
+
+### Usage
+- Open `http://localhost:3000`.
+- Use the **Settings (⚙️)** menu in the UI to manage your API keys (Gemini, Groq, Mistral, Ollama) and select your active models.
+
+## 🧠 Technology Stack
+
+- **Frontend:** Pure HTML, CSS, Vanilla JavaScript (No heavy frameworks!).
+- **PDF Parsing:** `pdf.js` by Mozilla.
+- **Math Rendering:** `KaTeX`
+- **Markdown Parsing:** `Marked.js`
+- **Visualization:** LaTeX / TikZ -> Compiled via [Kroki](https://kroki.io/).
+- **Exporting:** `html2pdf.js`
+- **Backend/Proxy:** Vercel Serverless Functions (`/api/ollama.js`).

@@ -3258,7 +3258,7 @@ Rules for University-Level Textbook Aesthetics:
 1. STRICT FORMATTING: ONLY output valid TikZ code enclosed in a \`\`\`latex ... \`\`\` block. NO document preamble (no \\documentclass). MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}. No conversational text.
 2. PROFESSIONAL STYLING:
    - Typography: All mathematical variables, expressions, and axis labels MUST be wrapped in $...$ to ensure beautiful LaTeX math font rendering.
-   - Colors: Use elegant, academic colors (e.g., solid black for primary lines, dark gray for grids/axes, deep blue/red for emphasis). Avoid bright neon colors.
+   - Colors: Use elegant, academic colors (e.g., solid black for primary lines, dark gray for grids/axes, blue!80!black or red!80!black for emphasis). ONLY use standard xcolor colors, NEVER generate undefined color names like "deepblue" or "darkred" without defining them. Avoid bright neon colors.
    - Fills: When shading areas, use subtle tints with low opacity (e.g., \`fill=black!10\`, \`fill=blue!10\`).
    - Line Weights: Use \`thick\` (0.8pt) for primary geometric outlines/functions, and \`thin\` or \`dashed\` for auxiliary lines, grids, or projections.
 3. PRECISION & LAYOUT:

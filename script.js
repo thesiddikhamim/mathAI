@@ -3292,6 +3292,7 @@ Rules for University-Level Textbook Aesthetics:
 3. PRECISION & LAYOUT:
    - Proper Arrows: Use \`>=stealth\` or \`>=latex\` for standard mathematical arrowheads on axes or vectors.
    - Labels: Position text cleanly using positioning anchors (e.g., \`above left\`, \`below right\`) so it NEVER overlaps with lines.
+   - Ticks and Intervals: When plotting large coordinate values (e.g. 100, 200, etc.), ALWAYS adjust the tick intervals to larger steps (e.g. 50, 100) instead of making very small gaps like 5 or 10. Avoid cluttering the plot with too many labels or grid lines.
    - Scale: Ensure geometric proportions are logically sound and properly spaced.
 `;
 

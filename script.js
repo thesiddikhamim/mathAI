@@ -668,6 +668,27 @@ el.saveKey.addEventListener("click", () => {
 
   renderModelCarousel();
 
+  // Instantly update visualization if a problem is currently solved
+  if (state.isSolved && state.activeTabId && state.jobNodes[state.activeTabId]) {
+    const activeWrapper = state.jobNodes[state.activeTabId];
+    const oldVis = activeWrapper.querySelector(".vis-container");
+    if (oldVis) oldVis.remove();
+    
+    if (state.enableVisualization && state.rawResponse && state.rawResponse.trim().length > 0) {
+      renderVisualization(state.rawResponse, activeWrapper, state.activeTabId)
+        .then(() => {
+          if (state.answerCache[state.activeTabId]) {
+            state.answerCache[state.activeTabId].solutionHTML = activeWrapper.innerHTML;
+          }
+        })
+        .catch(console.error);
+    } else {
+      if (state.answerCache[state.activeTabId]) {
+        state.answerCache[state.activeTabId].solutionHTML = activeWrapper.innerHTML;
+      }
+    }
+  }
+
   showSettingsSt("✓ All settings saved!", "success");
   setTimeout(closeSettings, 1100);
 });
@@ -3235,11 +3256,18 @@ async function renderVisualization(aiText, wrapper, tabId) {
       </div>
     `;
     scrollToBottom(true);
+    if(typeof updateCache === 'function') updateCache();
   };
 
   const visContainer = document.createElement("div");
   visContainer.className = "vis-container";
   wrapper.appendChild(visContainer);
+
+  const updateCache = () => {
+    if (tabId && state.answerCache[tabId]) {
+      state.answerCache[tabId].solutionHTML = wrapper.innerHTML;
+    }
+  };
 
   const startVisualization = async () => {
     try {
@@ -3368,6 +3396,7 @@ ${safeTikz}
     visContainer.appendChild(regenWrapper);
 
     scrollToBottom(true);
+    if(typeof updateCache === 'function') updateCache();
 
     } catch (err) {
       console.error("Visualization error:", err);
@@ -3390,6 +3419,7 @@ ${safeTikz}
         retryBtn.addEventListener('click', () => startVisualization());
       }
       scrollToBottom(true);
+      if(typeof updateCache === 'function') updateCache();
     }
   };
 
@@ -3413,6 +3443,7 @@ ${safeTikz}
       });
     }
     scrollToBottom(true);
+    if(typeof updateCache === 'function') updateCache();
   } else {
     // visMode auto
     startVisualization();

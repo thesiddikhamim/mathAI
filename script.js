@@ -216,7 +216,11 @@ const AVAILABLE_MODELS = {
     { id: "meta-llama/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout 17B" },
     { id: "meta-llama/llama-4-maverick-17b-128e-instruct", label: "Llama 4 Maverick 17B" },
     { id: "groq/compound", label: "Compound Groq" },
-    { id: "qwen-qwq-32b", label: "Qwen QwQ 32B" }
+    { id: "qwen-qwq-32b", label: "Qwen QwQ 32B" },
+    { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B" },
+    { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B" },
+    { id: "openai/gpt-oss-120b", label: "GPT OSS 120B" },
+    { id: "openai/gpt-oss-20b", label: "GPT OSS 20B" }
   ]
 };
 

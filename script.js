@@ -27,8 +27,16 @@ const el = {
   settingsClose: $("settingsClose"),
   tabApiKeys: $("tabApiKeys"),
   tabModels: $("tabModels"),
+  tabVisualization: $("tabVisualization"),
   apiKeysView: $("apiKeysView"),
   modelsView: $("modelsView"),
+  visualizationView: $("visualizationView"),
+  enableVisualization: $("enableVisualization"),
+  visModelsWrapper: $("visModelsWrapper"),
+  visModelsContainer: $("visModelsContainer"),
+  visEnabledModelsContainer: $("visEnabledModelsContainer"),
+  visModeAsk: $("visModeAsk"),
+  visModeAuto: $("visModeAuto"),
 
   apiKeyInput: $("apiKeyInput"),
   toggleKeyVis: $("toggleKeyVisibility"),
@@ -142,6 +150,10 @@ const state = {
     mistral: ["mistral-large-latest"],
     groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
   },
+  enableVisualization: false,
+  visMode: "ask", // "ask" or "auto"
+  visModelConfig: "ollama:qwen3.5:cloud",
+  visEnabledModels: ["gemini:gemini-3.1-pro-preview", "ollama:qwen3.5:cloud"],
   // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
   activeTabId: "gemini:gemini-3.1-pro-preview",
   chatHistory: [],
@@ -187,6 +199,9 @@ const AVAILABLE_MODELS = {
   ollama: [
     { id: "qwen3.5:cloud", label: "Qwen 3.5 Cloud" },
     { id: "qwen3.5:397b-cloud", label: "Qwen 3.5 397B" },
+    { id: "glm-5.1:cloud", label: "GLM 5.1" },
+    { id: "qwen3-coder-next:cloud", label: "Qwen 3 Coder Next" },
+    { id: "deepseek-v3.2:cloud", label: "DeepSeek V3.2" },
     { id: "gemma4:31b-cloud", label: "Gemma 4 31B" },
     { id: "kimi-k2.5:cloud", label: "Kimi K2.5" },
     { id: "llama3.2:latest", label: "Llama 3.2" }
@@ -201,7 +216,11 @@ const AVAILABLE_MODELS = {
     { id: "meta-llama/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout 17B" },
     { id: "meta-llama/llama-4-maverick-17b-128e-instruct", label: "Llama 4 Maverick 17B" },
     { id: "groq/compound", label: "Compound Groq" },
-    { id: "qwen-qwq-32b", label: "Qwen QwQ 32B" }
+    { id: "qwen-qwq-32b", label: "Qwen QwQ 32B" },
+    { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B" },
+    { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B" },
+    { id: "openai/gpt-oss-120b", label: "GPT OSS 120B" },
+    { id: "openai/gpt-oss-20b", label: "GPT OSS 20B" }
   ]
 };
 
@@ -344,6 +363,7 @@ function renderSettingsModels() {
     cb.addEventListener("change", e => {
       state.enabledProviders[e.target.dataset.provider] = e.target.checked;
       renderSettingsModels(); // re-render to show/hide models
+      renderVisModels(); renderVisEnabledModels(); // re-render visualization models list
     });
   });
 
@@ -362,11 +382,155 @@ function renderSettingsModels() {
   });
 }
 
+
+function renderVisEnabledModels() {
+  if (!el.visEnabledModelsContainer) return;
+  el.visEnabledModelsContainer.innerHTML = "";
+  
+  const providers = [
+    { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
+    { id: "ollama", name: "Ollama Cloud", icon: "ollama.svg" },
+    { id: "mistral", name: "Mistral AI", icon: "mistral.svg" },
+    { id: "groq", name: "Groq", icon: "groq.svg" }
+  ];
+
+  providers.forEach((p) => {
+    const isEnabled = state.enabledProviders[p.id];
+    const selected = state.selectedModels[p.id] || [];
+    
+    if (isEnabled && selected.length > 0 && AVAILABLE_MODELS[p.id]) {
+      const group = document.createElement("div");
+      group.className = "vis-provider-group";
+      group.style.marginBottom = "20px";
+      
+      const header = document.createElement("div");
+      header.className = "provider-header-left";
+      header.style.marginBottom = "10px";
+      header.innerHTML = `
+        <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="provider-logo" alt="${p.name}" style="width: 18px; height: 18px;" />
+        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">${p.name}</span>
+      `;
+      group.appendChild(header);
+      
+      const grid = document.createElement("div");
+      grid.className = "models-grid";
+      
+      selected.forEach(modelId => {
+        const m = AVAILABLE_MODELS[p.id].find(x => x.id === modelId);
+        if (!m) return;
+        
+        const val = p.id + ":" + m.id;
+        const isSelected = state.visEnabledModels.includes(val);
+        
+        const lbl = document.createElement("label");
+        lbl.className = "model-checkbox-label";
+        
+        lbl.innerHTML = `
+          <input type="checkbox" class="vis-model-checkbox" value="${val}" ${isSelected ? "checked" : ""}>
+          ${m.label}
+        `;
+        grid.appendChild(lbl);
+      });
+      
+      group.appendChild(grid);
+      el.visEnabledModelsContainer.appendChild(group);
+    }
+  });
+
+  el.visEnabledModelsContainer.querySelectorAll(".vis-model-checkbox").forEach(cb => {
+    cb.addEventListener("change", e => {
+      const val = e.target.value;
+      if (e.target.checked) {
+        if (!state.visEnabledModels.includes(val)) state.visEnabledModels.push(val);
+      } else {
+        state.visEnabledModels = state.visEnabledModels.filter(x => x !== val);
+      }
+    });
+  });
+}
+
+
+
+function renderVisModels() {
+  if (!el.visModelsContainer) return;
+  el.visModelsContainer.innerHTML = "";
+  
+  const providers = [
+    { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
+    { id: "ollama", name: "Ollama Cloud", icon: "ollama.svg" },
+    { id: "mistral", name: "Mistral AI", icon: "mistral.svg" },
+    { id: "groq", name: "Groq", icon: "groq.svg" }
+  ];
+
+  providers.forEach((p, index) => {
+    const isEnabled = state.enabledProviders[p.id];
+    if (isEnabled && AVAILABLE_MODELS[p.id]) {
+      const group = document.createElement("div");
+      group.className = "vis-provider-group";
+      group.style.marginBottom = "20px";
+      
+      const header = document.createElement("div");
+      header.className = "provider-header-left";
+      header.style.marginBottom = "10px";
+      header.innerHTML = `
+        <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="provider-logo" alt="${p.name}" style="width: 18px; height: 18px;" />
+        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">${p.name}</span>
+      `;
+      group.appendChild(header);
+      
+      const grid = document.createElement("div");
+      grid.className = "models-grid";
+      
+      AVAILABLE_MODELS[p.id].forEach(m => {
+        const val = p.id + ":" + m.id;
+        const isSelected = state.visModelConfig === val;
+        
+        const lbl = document.createElement("label");
+        lbl.className = "model-checkbox-label";
+        
+        lbl.innerHTML = `
+          <input type="radio" name="visModelGlobalRadio" class="model-radio" value="${val}" ${isSelected ? "checked" : ""}>
+          ${m.label}
+        `;
+        grid.appendChild(lbl);
+      });
+      
+      group.appendChild(grid);
+      el.visModelsContainer.appendChild(group);
+      
+      // Add a mini divider if it's not the last enabled one, but visual spacing is usually enough.
+    }
+  });
+
+  // Add event listeners for the radio buttons
+  el.visModelsContainer.querySelectorAll(".model-radio").forEach(radio => {
+    radio.addEventListener("change", e => {
+      if (e.target.checked) {
+        state.visModelConfig = e.target.value;
+      }
+    });
+  });
+}
+
 function openSettings() {
   el.apiKeyInput.value = state.apiKey;
   el.groqApiKeyInput.value = state.groqApiKey;
   el.mistralApiKeyInput.value = state.mistralApiKey;
   el.ollamaApiKeyInput.value = state.ollamaApiKey;
+  
+  if (el.enableVisualization) {
+    el.enableVisualization.checked = state.enableVisualization;
+    if (el.visModelsWrapper) {
+      el.visModelsWrapper.classList.toggle("hidden", !state.enableVisualization);
+    }
+  }
+
+  if (el.visModeAsk && el.visModeAuto) {
+    el.visModeAsk.checked = state.visMode === "ask";
+    el.visModeAuto.checked = state.visMode === "auto";
+  }
+  
+  renderVisModels(); renderVisEnabledModels();
   
   renderSettingsModels();
   
@@ -378,22 +542,49 @@ function closeSettings() {
   el.settingsOv.classList.add("hidden");
 }
 
-el.tabApiKeys.addEventListener("click", () => {
-  el.tabApiKeys.classList.add("active");
-  el.tabModels.classList.remove("active");
-  el.apiKeysView.classList.add("active");
-  el.apiKeysView.classList.remove("hidden");
-  el.modelsView.classList.remove("active");
-  el.modelsView.classList.add("hidden");
-});
-
 el.tabModels.addEventListener("click", () => {
   el.tabModels.classList.add("active");
+  el.tabVisualization.classList.remove("active");
   el.tabApiKeys.classList.remove("active");
+  
   el.modelsView.classList.add("active");
   el.modelsView.classList.remove("hidden");
+  
+  el.visualizationView.classList.remove("active");
+  el.visualizationView.classList.add("hidden");
+  
   el.apiKeysView.classList.remove("active");
   el.apiKeysView.classList.add("hidden");
+});
+
+el.tabVisualization.addEventListener("click", () => {
+  el.tabVisualization.classList.add("active");
+  el.tabModels.classList.remove("active");
+  el.tabApiKeys.classList.remove("active");
+  
+  el.visualizationView.classList.add("active");
+  el.visualizationView.classList.remove("hidden");
+  
+  el.modelsView.classList.remove("active");
+  el.modelsView.classList.add("hidden");
+  
+  el.apiKeysView.classList.remove("active");
+  el.apiKeysView.classList.add("hidden");
+});
+
+el.tabApiKeys.addEventListener("click", () => {
+  el.tabApiKeys.classList.add("active");
+  el.tabVisualization.classList.remove("active");
+  el.tabModels.classList.remove("active");
+  
+  el.apiKeysView.classList.add("active");
+  el.apiKeysView.classList.remove("hidden");
+  
+  el.visualizationView.classList.remove("active");
+  el.visualizationView.classList.add("hidden");
+  
+  el.modelsView.classList.remove("active");
+  el.modelsView.classList.add("hidden");
 });
 
 el.settingsBtn.addEventListener("click", openSettings);
@@ -401,6 +592,28 @@ el.settingsClose.addEventListener("click", closeSettings);
 el.settingsOv.addEventListener("click", (e) => {
   if (e.target === el.settingsOv) closeSettings();
 });
+
+if (el.enableVisualization) {
+  el.enableVisualization.addEventListener("change", (e) => {
+    if (el.visModelsWrapper) {
+      if (e.target.checked) {
+        el.visModelsWrapper.classList.remove("hidden");
+      } else {
+        el.visModelsWrapper.classList.add("hidden");
+      }
+    }
+  });
+}
+
+if (el.visModeAsk && el.visModeAuto) {
+  el.visModeAsk.addEventListener("change", (e) => {
+    if (e.target.checked) state.visMode = "ask";
+  });
+  
+  el.visModeAuto.addEventListener("change", (e) => {
+    if (e.target.checked) state.visMode = "auto";
+  });
+}
 
 // Eye toggle for each provider key
 function makeEyeToggle(btn, input) {
@@ -441,6 +654,15 @@ el.saveKey.addEventListener("click", () => {
   if (ollaKey) localStorage.setItem("mathai-ollama-apikey", ollaKey);
   else localStorage.removeItem("mathai-ollama-apikey");
 
+  state.enableVisualization = el.enableVisualization ? el.enableVisualization.checked : false;
+  localStorage.setItem("mathai-enable-vis", state.enableVisualization);
+  localStorage.setItem("mathai-vis-mode", state.visMode);
+  
+  if (state.visModelConfig) {
+    localStorage.setItem("mathai-vis-model", state.visModelConfig);
+    localStorage.setItem("mathai-vis-enabled", JSON.stringify(state.visEnabledModels));
+  }
+
   localStorage.setItem("mathai-enabled-providers", JSON.stringify(state.enabledProviders));
   localStorage.setItem("mathai-selected-models", JSON.stringify(state.selectedModels));
 
@@ -468,11 +690,22 @@ el.clearKey.addEventListener("click", () => {
     groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
   };
   
+  state.enableVisualization = false;
+  state.visMode = "ask";
+  state.visModelConfig = "ollama:qwen3.5:cloud";
+  if (el.enableVisualization) el.enableVisualization.checked = false;
+  if (el.visModeAsk && el.visModeAuto) {
+    el.visModeAsk.checked = true;
+    el.visModeAuto.checked = false;
+  }
+  
   renderSettingsModels();
+  renderVisModels(); renderVisEnabledModels();
   
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
-    "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id"
+    "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id",
+    "mathai-enable-vis", "mathai-vis-mode", "mathai-vis-model"
   ];
   keys.forEach(k => localStorage.removeItem(k));
   
@@ -496,11 +729,24 @@ function loadSettings() {
   const ep = localStorage.getItem("mathai-enabled-providers");
   const sm = localStorage.getItem("mathai-selected-models");
   const activeTabId = localStorage.getItem("mathai-active-tab-id");
+  const enableVis = localStorage.getItem("mathai-enable-vis");
+  const visModMode = localStorage.getItem("mathai-vis-mode");
+  const visMod = localStorage.getItem("mathai-vis-model");
+  const visEnList = localStorage.getItem("mathai-vis-enabled");
 
   if (k) state.apiKey = k;
   if (gk) state.groqApiKey = gk;
   if (mk) state.mistralApiKey = mk;
   if (ok) state.ollamaApiKey = ok;
+  
+  if (enableVis !== null) state.enableVisualization = enableVis === "true";
+  if (visModMode) state.visMode = visModMode;
+  if (visMod) state.visModelConfig = visMod;
+  if (visEnList) {
+    try {
+      state.visEnabledModels = JSON.parse(visEnList);
+    } catch(e) {}
+  }
 
   try {
     if (ep) {
@@ -1337,9 +1583,6 @@ async function solveAllSelection() {
           thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
-      if (tabId === state.activeTabId) {
-        scrollToBottom(false);
-      }
     };
 
     try {
@@ -1392,6 +1635,14 @@ async function solveAllSelection() {
           { role: "user", content: "[Image provided]" },
           { role: "assistant", content: response },
         ];
+      }
+
+      if (state.enableVisualization && response.trim().length > 0) {
+        try {
+          await renderVisualization(response, wrapper, tabId);
+        } catch (e) {
+          console.error(e);
+        }
       }
 
       state.runningJobs[tabId] = false;
@@ -1532,9 +1783,6 @@ async function solveSelection(resetGlobalCache = false) {
         if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
-      if (currentTabId === state.activeTabId) {
-        scrollToBottom(false);
-      }
     };
 
     if (currentProvider === "gemini") {
@@ -1583,6 +1831,14 @@ async function solveSelection(resetGlobalCache = false) {
         { role: "user", content: "[Image provided]" },
         { role: "assistant", content: response },
       ];
+    }
+
+    if (state.enableVisualization && response.trim().length > 0) {
+      try {
+        await renderVisualization(response, wrapper, currentTabId);
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     state.runningJobs[currentTabId] = false;
@@ -1707,9 +1963,6 @@ async function sendFollowUp() {
         if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
-      if (currentTabId === state.activeTabId) {
-        scrollToBottom(false);
-      }
     };
 
     if (currentProvider === "gemini") {
@@ -1748,6 +2001,14 @@ async function sendFollowUp() {
         onChunk,
       );
       state.chatHistory.push({ role: "assistant", content: response });
+    }
+
+    if (state.enableVisualization && response.trim().length > 0) {
+      try {
+        await renderVisualization(response, wrapper, currentTabId);
+      } catch (e) {
+        console.error(e);
+      }
     }
 
     state.rawResponse += "\n\n" + response;
@@ -2134,52 +2395,104 @@ async function callOllamaFollowUp(messages, apiKey, model, onChunk) {
    RENDER SOLUTION — Markdown + KaTeX
    ========================================================= */
 
+const renderQueueMap = new WeakMap();
+const RENDER_THROTTLE_MS = 100;
+
 function renderMarkdown(raw, container) {
-  let processed = raw;
+  let state = renderQueueMap.get(container);
+  if (!state) {
+    state = { pendingRaw: null, isRendering: false, lastRenderTime: 0, timerId: null };
+    renderQueueMap.set(container, state);
+  }
 
-  // Auto-close unclosed blocks to prevent formatting glitches during streaming
-  const numBackticks = (processed.match(/```/g) || []).length;
-  if (numBackticks % 2 !== 0) processed += "\n```";
+  state.pendingRaw = raw;
 
-  const numDoubleDollar = (processed.match(/\$\$/g) || []).length;
-  if (numDoubleDollar % 2 !== 0) processed += "\n$$";
+  const executeRender = () => {
+    if (state.pendingRaw === null) return;
+    
+    state.isRendering = true;
+    const textToRender = state.pendingRaw;
+    state.pendingRaw = null;
 
-  const numOpenBracket = (processed.match(/\\\[/g) || []).length;
-  const numCloseBracket = (processed.match(/\\\]/g) || []).length;
-  if (numOpenBracket > numCloseBracket) processed += "\n\\]";
+    let processed = textToRender;
 
-  // Convert ```math code blocks to standard $$ math blocks
-  processed = processed.replace(
-    /```math\n?([\s\S]*?)```/g,
-    (match, p1) => `$$${p1}$$`,
-  );
+    // Auto-close unclosed blocks to prevent formatting glitches during streaming
+    const numBackticks = (processed.match(/```/g) || []).length;
+    if (numBackticks % 2 !== 0) processed += "\n```";
 
-  const escapeHTML = (str) =>
-    str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const numDoubleDollar = (processed.match(/\$\$/g) || []).length;
+    if (numDoubleDollar % 2 !== 0) processed += "\n$$";
 
-  // Protect $$ ... $$ from being mangled by marked's breaks:true
-  processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
-    return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
-  });
+    const numOpenBracket = (processed.match(/\\\[/g) || []).length;
+    const numCloseBracket = (processed.match(/\\\]/g) || []).length;
+    if (numOpenBracket > numCloseBracket) processed += "\n\\]";
 
-  // Protect \[ ... \] blocks as well
-  processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
-    return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
-  });
+    // Convert ```math code blocks to standard $$ math blocks
+    processed = processed.replace(
+      /```math\n?([\s\S]*?)```/g,
+      (match, p1) => `$$${p1}$$`,
+    );
 
-  marked.setOptions({ breaks: true, gfm: true });
-  container.innerHTML = marked.parse(processed);
+    const escapeHTML = (str) =>
+      str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  if (typeof renderMathInElement !== "undefined") {
-    renderMathInElement(container, {
-      delimiters: [
-        { left: "$$", right: "$$", display: true },
-        { left: "$", right: "$", display: false },
-        { left: "\\[", right: "\\]", display: true },
-        { left: "\\(", right: "\\)", display: false },
-      ],
-      throwOnError: false,
+    // Protect $$ ... $$ from being mangled by marked's breaks:true
+    processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+      return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
     });
+
+    // Protect \[ ... \] blocks as well
+    processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+      return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
+    });
+
+    marked.setOptions({ breaks: true, gfm: true });
+    container.innerHTML = marked.parse(processed);
+
+    if (typeof renderMathInElement !== "undefined") {
+      renderMathInElement(container, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\[", right: "\\]", display: true },
+          { left: "\\(", right: "\\)", display: false },
+        ],
+        throwOnError: false,
+      });
+    }
+
+    state.lastRenderTime = Date.now();
+    state.isRendering = false;
+
+    if (container === el.solutionContent || el.solutionContent.contains(container)) {
+      scrollToBottom(false);
+    }
+
+    if (state.pendingRaw !== null) {
+      state.timerId = setTimeout(() => {
+        requestAnimationFrame(executeRender);
+      }, RENDER_THROTTLE_MS);
+    }
+  };
+
+  if (state.isRendering) return;
+
+  const now = Date.now();
+  const timeSinceLast = now - state.lastRenderTime;
+
+  if (timeSinceLast >= RENDER_THROTTLE_MS) {
+    if (state.timerId) {
+      clearTimeout(state.timerId);
+      state.timerId = null;
+    }
+    requestAnimationFrame(executeRender);
+  } else {
+    if (!state.timerId) {
+      state.timerId = setTimeout(() => {
+        state.timerId = null;
+        requestAnimationFrame(executeRender);
+      }, RENDER_THROTTLE_MS - timeSinceLast);
+    }
   }
 }
 
@@ -2785,4 +3098,323 @@ if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", () => waitForKaTeX(init));
 } else {
   waitForKaTeX(init);
+}
+/* =========================================================
+   PYODIDE - AI Visualization
+   ========================================================= */
+
+let pyodideWorker = null;
+
+function getPyodideWorker() {
+  if (pyodideWorker) return pyodideWorker;
+  
+  const workerCode = `
+importScripts("https://cdn.jsdelivr.net/pyodide/v0.25.0/full/pyodide.js");
+
+let pyInit = null;
+async function getPy() {
+  if (!pyInit) {
+    pyInit = loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.25.0/full/" }).then(async py => {
+      await py.loadPackage(['matplotlib', 'numpy']);
+      return py;
+    });
+  }
+  return await pyInit;
+}
+
+  self.onmessage = async (e) => {
+  const { id, code } = e.data;
+  try {
+    const py = await getPy();
+    
+    // Clear out any old output
+    if (py.FS.analyzePath('output.png').exists) {
+      py.FS.unlink('output.png');
+    }
+
+    try {
+      // Inject monkey patch to gracefully swallow MathText Pyparsing errors on a per-label basis
+      // Also force 'Agg' backend to avoid DOM access in Web Worker
+      const robustCode = \`
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.text as mtext
+if not hasattr(mtext.Text, '_original_get_layout'):
+    mtext.Text._original_get_layout = mtext.Text._get_layout
+    def safe_get_layout(self, renderer):
+        try:
+            return self._original_get_layout(renderer)
+        except Exception:
+            self.set_text(self.get_text().replace('$', ''))
+            return self._original_get_layout(renderer)
+    mtext.Text._get_layout = safe_get_layout
+\` + "\\n" + code;
+      
+      await py.runPythonAsync(robustCode);
+    } catch (innerErr) {
+      if (innerErr.message && innerErr.message.includes("ParseFatalException")) {
+        // Fallback: retry without LaTeX mapping to prevent visualization failing on mathtext parses
+        const fallbackCode = \`
+import matplotlib
+matplotlib.use('Agg')
+\` + "\\n" + code.split("$").join("");
+        await py.runPythonAsync(fallbackCode);
+      } else {
+        throw innerErr;
+      }
+    }
+    
+    if (py.FS.analyzePath('output.png').exists) {
+      const imgData = py.FS.readFile('output.png');
+      const uint8 = new Uint8Array(imgData);
+      py.FS.unlink('output.png');
+      self.postMessage({ id, success: true, imgData: uint8 }, [uint8.buffer]);
+    } else {
+      self.postMessage({ id, success: false, error: "Code ran but did not yield output.png" });
+    }
+  } catch (err) {
+    self.postMessage({ id, success: false, error: err.message });
+  }
+};
+  `;
+  
+  const blob = new Blob([workerCode], { type: 'application/javascript' });
+  pyodideWorker = new Worker(URL.createObjectURL(blob));
+  return pyodideWorker;
+}
+
+function runPythonInWorker(code) {
+  return new Promise((resolve, reject) => {
+    const worker = getPyodideWorker();
+    const id = Date.now() + Math.random().toString();
+    
+    const handler = (e) => {
+      if (e.data.id === id) {
+        worker.removeEventListener('message', handler);
+        if (e.data.success) {
+          resolve(e.data.imgData);
+        } else {
+          reject(new Error(e.data.error));
+        }
+      }
+    };
+    worker.addEventListener('message', handler);
+    worker.postMessage({ id, code });
+  });
+}
+
+async function renderVisualization(aiText, wrapper, tabId) {
+  if (!state.enableVisualization) return;
+  if (!state.visModelConfig) return;
+
+  // Check if visualization is enabled for the current chat model
+  const modelToCheck = tabId || state.activeTabId;
+  if (!state.visEnabledModels.includes(modelToCheck)) return;
+
+  const [visProvider, visModel] = state.visModelConfig.split(":");
+  const providerKey = {
+    gemini: state.apiKey,
+    groq: state.groqApiKey,
+    mistral: state.mistralApiKey,
+    ollama: state.ollamaApiKey,
+  }[visProvider];
+
+  if (!providerKey) {
+    console.warn("Skipping visualization: Missing API key for " + visProvider);
+    return;
+  }
+
+          // Add loading UI component reference function
+  const updateVisLoadingUI = (text) => {
+    visContainer.innerHTML = `
+      <div style="margin-top: 1.5rem; padding: 1rem; border: 1px dashed var(--border); border-radius: var(--radius-md); text-align: center; color: var(--text-secondary); background: var(--bg-tertiary);">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; width: 20px; height: 20px; vertical-align: -5px; margin-right: 8px;">
+          <path d="M21 12a9 9 0 11-6.219-8.56"></path>
+        </svg>
+        <span style="font-size: 14px; font-weight: 500;">${text}</span>
+      </div>
+    `;
+    scrollToBottom(true);
+  };
+
+  const visContainer = document.createElement("div");
+  visContainer.className = "vis-container";
+  wrapper.appendChild(visContainer);
+
+  const startVisualization = async () => {
+    try {
+      const noop = () => {};
+
+      // Generate TikZ directly from the main content
+      updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
+
+      const coderPrompt = `You are an expert LaTeX TikZ visualization coder. I am providing you with the step-by-step solution to a math problem.
+Your task is to design a precise, publication-quality mathematical visualization for the ORIGINAL QUESTION and INITIAL SETUP (including variables, quation and all the steps to solve it) using TikZ. Do NOT visualize the final answer.
+
+Context:
+${aiText}
+
+Rules for University-Level Textbook Aesthetics:
+1. STRICT FORMATTING: ONLY output valid TikZ code enclosed in a \`\`\`latex ... \`\`\` block. NO document preamble (no \\documentclass). MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}. No conversational text.
+2. PROFESSIONAL STYLING:
+   - Typography: All mathematical variables, expressions, and axis labels MUST be wrapped in $...$ to ensure beautiful LaTeX math font rendering.
+   - Colors: Use elegant, academic colors (e.g., solid black for primary lines, dark gray for grids/axes, deep blue/red for emphasis). Avoid bright neon colors.
+   - Fills: When shading areas, use subtle tints with low opacity (e.g., \`fill=black!10\`, \`fill=blue!10\`).
+   - Line Weights: Use \`thick\` (0.8pt) for primary geometric outlines/functions, and \`thin\` or \`dashed\` for auxiliary lines, grids, or projections.
+3. PRECISION & LAYOUT:
+   - Proper Arrows: Use \`>=stealth\` or \`>=latex\` for standard mathematical arrowheads on axes or vectors.
+   - Labels: Position text cleanly using positioning anchors (e.g., \`above left\`, \`below right\`) so it NEVER overlaps with lines.
+   - Scale: Ensure geometric proportions are logically sound and properly spaced.
+`;
+
+      let visCodeText = "";
+      if (visProvider === "gemini") {
+        const chatHist = [{ role: "user", parts: [{ text: coderPrompt }] }];
+        visCodeText = await callGeminiChat(chatHist, providerKey, visModel, noop);
+      } else if (visProvider === "groq") {
+        visCodeText = await callGroqFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+      } else if (visProvider === "mistral") {
+        visCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+      } else if (visProvider === "ollama") {
+        visCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+      }
+      
+      // Extract TikZ code
+      let tikzCode = "";
+      
+      // Always prefer explicit begin/end environment to strip preamble if AI added one
+      const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
+      const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
+      
+      if (beginIdx !== -1 && endIdx !== -1) {
+          tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
+      } else {
+          const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
+          const tikzMatch = tikzRegex.exec(visCodeText);
+          if (tikzMatch && tikzMatch[1].trim().length > 0) {
+            tikzCode = tikzMatch[1].trim();
+        } else {
+          tikzCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
+        }
+    }
+
+    if (!tikzCode || !tikzCode.includes("\\begin{tikzpicture}")) {
+       throw new Error("The AI model failed to produce valid TikZ code. Please try again.");
+    }
+
+    updateVisLoadingUI("Rendering TikZ via Web API...");
+    
+    let safeTikz = tikzCode.replace(/\\documentclass.*?\n/g, '').replace(/\\usepackage.*?\n/g, '').replace(/\\begin{document}/g, '').replace(/\\end{document}/g, '');
+    const printCode = `\\documentclass[tikz,border=2pt]{standalone}
+\\usepackage{amsmath}
+\\usepackage{amssymb}
+\\usepackage{xcolor}
+\\usetikzlibrary{calc,angles,quotes,intersections,positioning,arrows.meta,decorations.markings,backgrounds}
+\\begin{document}
+${safeTikz}
+\\end{document}`;
+
+    const svgResp = await fetch("https://kroki.io/tikz/svg", {
+      method: "POST",
+      headers: { "Content-Type": "text/plain" },
+      body: printCode,
+      // optional short timeout
+    });
+
+    if (!svgResp.ok) {
+      const errText = await svgResp.text();
+      console.error("Kroki Error Response:", errText);
+      const cleanErr = errText.split("\n").slice(0, 5).join(" ").replace(/</g, "&lt;");
+      throw new Error("TikZ compilation error:\n" + cleanErr);
+    }
+    
+    const svgText = await svgResp.text();
+
+    const visualDiv = document.createElement("div");
+    visualDiv.style.cssText = "margin-top: 1.5rem; text-align: center; overflow-x: auto; background: transparent;";
+    
+    visualDiv.innerHTML = svgText;
+    
+    // adjust SVG max size so it doesn't break chat layout
+    const svgEl = visualDiv.querySelector("svg");
+    if(svgEl) {
+       svgEl.style.maxWidth = "100%";
+       svgEl.style.height = "auto";
+    }
+
+    visContainer.innerHTML = ""; // Clear loading state
+    visContainer.appendChild(visualDiv);
+
+    // Add Regenerate button below visualization
+    const regenWrapper = document.createElement("div");
+    regenWrapper.style.cssText = "margin-top: 12px; text-align: center;";
+    
+    const regenBtn = document.createElement("button");
+    regenBtn.className = "btn btn-outline btn-sm";
+    regenBtn.title = "Regenerate only this visualization image";
+    regenBtn.style.cssText = "font-size: 12px; padding: 6px 12px; border-radius: var(--radius-md); opacity: 0.85;";
+    regenBtn.innerHTML = `
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px;">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+        <path d="M3 3v5h5"></path>
+      </svg>
+      Regenerate Image
+    `;
+    regenBtn.addEventListener("click", () => {
+      startVisualization();
+    });
+    
+    regenWrapper.appendChild(regenBtn);
+    visContainer.appendChild(regenWrapper);
+
+    scrollToBottom(true);
+
+    } catch (err) {
+      console.error("Visualization error:", err);
+      let shortErr = err && err.message ? err.message.split("\\n")[0] : "Unknown error";
+      visContainer.innerHTML = `
+        <div style="margin-top: 1.5rem; padding: 0.85rem; border: 1px solid var(--danger); border-radius: var(--radius-md); color: var(--danger); font-size: 13px; background: rgba(239, 68, 68, 0.05); text-align: center;">
+          <div style="font-weight: 500; margin-bottom: 6px;">Visualization generation failed.</div>
+          <div style="opacity: 0.8; font-size: 11.5px; margin-bottom: 12px; word-break: break-all;">${shortErr.replace(/</g, "&lt;")}</div>
+          <button class="btn btn-outline btn-sm" style="border-color: var(--danger); color: var(--danger); font-size: 12px; padding: 6px 12px; border-radius: var(--radius-md);">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px;">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            Try Again
+          </button>
+        </div>
+      `;
+      const retryBtn = visContainer.querySelector('button');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => startVisualization());
+      }
+      scrollToBottom(true);
+    }
+  };
+
+  if (state.visMode === "ask") {
+    visContainer.innerHTML = `
+      <div style="margin-top: 1.5rem; text-align: center;">
+        <button class="btn btn-outline" id="btn-trigger-vis-${Date.now()}" style="padding: 10px 16px; border-radius: var(--radius-md); font-weight: 500;">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          Generate Visualization
+        </button>
+      </div>
+    `;
+    const triggerBtn = visContainer.querySelector('button');
+    if (triggerBtn) {
+      triggerBtn.addEventListener('click', () => {
+        startVisualization();
+      });
+    }
+    scrollToBottom(true);
+  } else {
+    // visMode auto
+    startVisualization();
+  }
 }

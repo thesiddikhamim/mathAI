@@ -530,6 +530,7 @@ body {
   display: block;
   pointer-events: none; /* Selection overlay captures events */
   user-select: none;
+  background-color: #ffffff; /* Ensures transparent images are visible in dark mode */
 }
 .image-preview {
   max-height: calc(100vh - 200px);

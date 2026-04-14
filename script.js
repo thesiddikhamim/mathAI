@@ -1553,9 +1553,6 @@ async function solveAllSelection() {
           thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
-      if (tabId === state.activeTabId) {
-        scrollToBottom(false);
-      }
     };
 
     try {
@@ -1756,9 +1753,6 @@ async function solveSelection(resetGlobalCache = false) {
         if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
-      if (currentTabId === state.activeTabId) {
-        scrollToBottom(false);
-      }
     };
 
     if (currentProvider === "gemini") {
@@ -1939,9 +1933,6 @@ async function sendFollowUp() {
         if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
-      if (currentTabId === state.activeTabId) {
-        scrollToBottom(false);
-      }
     };
 
     if (currentProvider === "gemini") {
@@ -2374,52 +2365,104 @@ async function callOllamaFollowUp(messages, apiKey, model, onChunk) {
    RENDER SOLUTION — Markdown + KaTeX
    ========================================================= */
 
+const renderQueueMap = new WeakMap();
+const RENDER_THROTTLE_MS = 100;
+
 function renderMarkdown(raw, container) {
-  let processed = raw;
+  let state = renderQueueMap.get(container);
+  if (!state) {
+    state = { pendingRaw: null, isRendering: false, lastRenderTime: 0, timerId: null };
+    renderQueueMap.set(container, state);
+  }
 
-  // Auto-close unclosed blocks to prevent formatting glitches during streaming
-  const numBackticks = (processed.match(/```/g) || []).length;
-  if (numBackticks % 2 !== 0) processed += "\n```";
+  state.pendingRaw = raw;
 
-  const numDoubleDollar = (processed.match(/\$\$/g) || []).length;
-  if (numDoubleDollar % 2 !== 0) processed += "\n$$";
+  const executeRender = () => {
+    if (state.pendingRaw === null) return;
+    
+    state.isRendering = true;
+    const textToRender = state.pendingRaw;
+    state.pendingRaw = null;
 
-  const numOpenBracket = (processed.match(/\\\[/g) || []).length;
-  const numCloseBracket = (processed.match(/\\\]/g) || []).length;
-  if (numOpenBracket > numCloseBracket) processed += "\n\\]";
+    let processed = textToRender;
 
-  // Convert ```math code blocks to standard $$ math blocks
-  processed = processed.replace(
-    /```math\n?([\s\S]*?)```/g,
-    (match, p1) => `$$${p1}$$`,
-  );
+    // Auto-close unclosed blocks to prevent formatting glitches during streaming
+    const numBackticks = (processed.match(/```/g) || []).length;
+    if (numBackticks % 2 !== 0) processed += "\n```";
 
-  const escapeHTML = (str) =>
-    str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const numDoubleDollar = (processed.match(/\$\$/g) || []).length;
+    if (numDoubleDollar % 2 !== 0) processed += "\n$$";
 
-  // Protect $$ ... $$ from being mangled by marked's breaks:true
-  processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
-    return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
-  });
+    const numOpenBracket = (processed.match(/\\\[/g) || []).length;
+    const numCloseBracket = (processed.match(/\\\]/g) || []).length;
+    if (numOpenBracket > numCloseBracket) processed += "\n\\]";
 
-  // Protect \[ ... \] blocks as well
-  processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
-    return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
-  });
+    // Convert ```math code blocks to standard $$ math blocks
+    processed = processed.replace(
+      /```math\n?([\s\S]*?)```/g,
+      (match, p1) => `$$${p1}$$`,
+    );
 
-  marked.setOptions({ breaks: true, gfm: true });
-  container.innerHTML = marked.parse(processed);
+    const escapeHTML = (str) =>
+      str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  if (typeof renderMathInElement !== "undefined") {
-    renderMathInElement(container, {
-      delimiters: [
-        { left: "$$", right: "$$", display: true },
-        { left: "$", right: "$", display: false },
-        { left: "\\[", right: "\\]", display: true },
-        { left: "\\(", right: "\\)", display: false },
-      ],
-      throwOnError: false,
+    // Protect $$ ... $$ from being mangled by marked's breaks:true
+    processed = processed.replace(/\$\$([\s\S]*?)\$\$/g, (match) => {
+      return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
     });
+
+    // Protect \[ ... \] blocks as well
+    processed = processed.replace(/\\\[([\s\S]*?)\\\]/g, (match) => {
+      return `\n<div class="math-block">${escapeHTML(match)}</div>\n`;
+    });
+
+    marked.setOptions({ breaks: true, gfm: true });
+    container.innerHTML = marked.parse(processed);
+
+    if (typeof renderMathInElement !== "undefined") {
+      renderMathInElement(container, {
+        delimiters: [
+          { left: "$$", right: "$$", display: true },
+          { left: "$", right: "$", display: false },
+          { left: "\\[", right: "\\]", display: true },
+          { left: "\\(", right: "\\)", display: false },
+        ],
+        throwOnError: false,
+      });
+    }
+
+    state.lastRenderTime = Date.now();
+    state.isRendering = false;
+
+    if (container === el.solutionContent || el.solutionContent.contains(container)) {
+      scrollToBottom(false);
+    }
+
+    if (state.pendingRaw !== null) {
+      state.timerId = setTimeout(() => {
+        requestAnimationFrame(executeRender);
+      }, RENDER_THROTTLE_MS);
+    }
+  };
+
+  if (state.isRendering) return;
+
+  const now = Date.now();
+  const timeSinceLast = now - state.lastRenderTime;
+
+  if (timeSinceLast >= RENDER_THROTTLE_MS) {
+    if (state.timerId) {
+      clearTimeout(state.timerId);
+      state.timerId = null;
+    }
+    requestAnimationFrame(executeRender);
+  } else {
+    if (!state.timerId) {
+      state.timerId = setTimeout(() => {
+        state.timerId = null;
+        requestAnimationFrame(executeRender);
+      }, RENDER_THROTTLE_MS - timeSinceLast);
+    }
   }
 }
 

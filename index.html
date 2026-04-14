@@ -176,9 +176,28 @@
             
             <div id="visModelsWrapper">
               <div class="settings-divider" style="margin: 20px 0;"></div>
+              
               <div class="settings-section">
-                <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent);">
-                  1. Model for Code Generation
+                <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
+                  1. Visualization Mode
+                </label>
+                <div class="models-grid">
+                  <label class="model-checkbox-label">
+                    <input type="radio" name="visModeRadio" id="visModeAsk" class="model-radio" value="ask">
+                    Ask Each Time
+                  </label>
+                  <label class="model-checkbox-label">
+                    <input type="radio" name="visModeRadio" id="visModeAuto" class="model-radio" value="auto">
+                    Auto
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-divider" style="margin: 20px 0;"></div>
+
+              <div class="settings-section">
+                <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
+                  2. Model for Code Generation
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
                   Pick the model that will be used to generate LaTeX TikZ code for visualization.
@@ -191,8 +210,8 @@
               <div class="settings-divider" style="margin: 20px 0;"></div>
 
               <div class="settings-section">
-                <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent);">
-                  2. Enable Visualization for Selected Chat Models
+                <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
+                  3. Enable Visualization for Selected Chat Models
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
                   For which of the chat models you selected in "Model selection" do you want to generate visualizations?

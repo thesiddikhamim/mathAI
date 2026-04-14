@@ -35,6 +35,8 @@ const el = {
   visModelsWrapper: $("visModelsWrapper"),
   visModelsContainer: $("visModelsContainer"),
   visEnabledModelsContainer: $("visEnabledModelsContainer"),
+  visModeAsk: $("visModeAsk"),
+  visModeAuto: $("visModeAuto"),
 
   apiKeyInput: $("apiKeyInput"),
   toggleKeyVis: $("toggleKeyVisibility"),
@@ -149,6 +151,7 @@ const state = {
     groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
   },
   enableVisualization: false,
+  visMode: "ask", // "ask" or "auto"
   visModelConfig: "ollama:qwen3.5:cloud",
   visEnabledModels: ["gemini:gemini-3.1-pro-preview", "ollama:qwen3.5:cloud"],
   // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
@@ -517,6 +520,11 @@ function openSettings() {
       el.visModelsWrapper.classList.toggle("hidden", !state.enableVisualization);
     }
   }
+
+  if (el.visModeAsk && el.visModeAuto) {
+    el.visModeAsk.checked = state.visMode === "ask";
+    el.visModeAuto.checked = state.visMode === "auto";
+  }
   
   renderVisModels(); renderVisEnabledModels();
   
@@ -593,6 +601,16 @@ if (el.enableVisualization) {
   });
 }
 
+if (el.visModeAsk && el.visModeAuto) {
+  el.visModeAsk.addEventListener("change", (e) => {
+    if (e.target.checked) state.visMode = "ask";
+  });
+  
+  el.visModeAuto.addEventListener("change", (e) => {
+    if (e.target.checked) state.visMode = "auto";
+  });
+}
+
 // Eye toggle for each provider key
 function makeEyeToggle(btn, input) {
   btn.addEventListener("click", () => {
@@ -634,6 +652,7 @@ el.saveKey.addEventListener("click", () => {
 
   state.enableVisualization = el.enableVisualization ? el.enableVisualization.checked : false;
   localStorage.setItem("mathai-enable-vis", state.enableVisualization);
+  localStorage.setItem("mathai-vis-mode", state.visMode);
   
   if (state.visModelConfig) {
     localStorage.setItem("mathai-vis-model", state.visModelConfig);
@@ -668,8 +687,13 @@ el.clearKey.addEventListener("click", () => {
   };
   
   state.enableVisualization = false;
+  state.visMode = "ask";
   state.visModelConfig = "ollama:qwen3.5:cloud";
   if (el.enableVisualization) el.enableVisualization.checked = false;
+  if (el.visModeAsk && el.visModeAuto) {
+    el.visModeAsk.checked = true;
+    el.visModeAuto.checked = false;
+  }
   
   renderSettingsModels();
   renderVisModels(); renderVisEnabledModels();
@@ -677,7 +701,7 @@ el.clearKey.addEventListener("click", () => {
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
     "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id",
-    "mathai-enable-vis", "mathai-vis-model"
+    "mathai-enable-vis", "mathai-vis-mode", "mathai-vis-model"
   ];
   keys.forEach(k => localStorage.removeItem(k));
   
@@ -702,6 +726,7 @@ function loadSettings() {
   const sm = localStorage.getItem("mathai-selected-models");
   const activeTabId = localStorage.getItem("mathai-active-tab-id");
   const enableVis = localStorage.getItem("mathai-enable-vis");
+  const visModMode = localStorage.getItem("mathai-vis-mode");
   const visMod = localStorage.getItem("mathai-vis-model");
   const visEnList = localStorage.getItem("mathai-vis-enabled");
 
@@ -711,6 +736,7 @@ function loadSettings() {
   if (ok) state.ollamaApiKey = ok;
   
   if (enableVis !== null) state.enableVisualization = enableVis === "true";
+  if (visModMode) state.visMode = visModMode;
   if (visMod) state.visModelConfig = visMod;
   if (visEnList) {
     try {
@@ -3210,13 +3236,15 @@ async function renderVisualization(aiText, wrapper, tabId) {
   const visContainer = document.createElement("div");
   visContainer.className = "vis-container";
   wrapper.appendChild(visContainer);
-  try {
-    const noop = () => {};
 
-    // Generate TikZ directly from the main content
-    updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
+  const startVisualization = async () => {
+    try {
+      const noop = () => {};
 
-    const coderPrompt = `You are an expert LaTeX TikZ visualization coder. I am providing you with the step-by-step solution to a math problem.
+      // Generate TikZ directly from the main content
+      updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
+
+      const coderPrompt = `You are an expert LaTeX TikZ visualization coder. I am providing you with the step-by-step solution to a math problem.
 Your task is to design a precise, publication-quality mathematical visualization for the ORIGINAL QUESTION and INITIAL SETUP (including variables, quation and all the steps to solve it) using TikZ. Do NOT visualize the final answer.
 
 Context:
@@ -3235,32 +3263,32 @@ Rules for University-Level Textbook Aesthetics:
    - Scale: Ensure geometric proportions are logically sound and properly spaced.
 `;
 
-    let visCodeText = "";
-    if (visProvider === "gemini") {
-      const chatHist = [{ role: "user", parts: [{ text: coderPrompt }] }];
-      visCodeText = await callGeminiChat(chatHist, providerKey, visModel, noop);
-    } else if (visProvider === "groq") {
-      visCodeText = await callGroqFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
-    } else if (visProvider === "mistral") {
-      visCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
-    } else if (visProvider === "ollama") {
-      visCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
-    }
-    
-    // Extract TikZ code
-    let tikzCode = "";
-    
-    // Always prefer explicit begin/end environment to strip preamble if AI added one
-    const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
-    const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
-    
-    if (beginIdx !== -1 && endIdx !== -1) {
-        tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
-    } else {
-        const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
-        const tikzMatch = tikzRegex.exec(visCodeText);
-        if (tikzMatch && tikzMatch[1].trim().length > 0) {
-          tikzCode = tikzMatch[1].trim();
+      let visCodeText = "";
+      if (visProvider === "gemini") {
+        const chatHist = [{ role: "user", parts: [{ text: coderPrompt }] }];
+        visCodeText = await callGeminiChat(chatHist, providerKey, visModel, noop);
+      } else if (visProvider === "groq") {
+        visCodeText = await callGroqFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+      } else if (visProvider === "mistral") {
+        visCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+      } else if (visProvider === "ollama") {
+        visCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+      }
+      
+      // Extract TikZ code
+      let tikzCode = "";
+      
+      // Always prefer explicit begin/end environment to strip preamble if AI added one
+      const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
+      const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
+      
+      if (beginIdx !== -1 && endIdx !== -1) {
+          tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
+      } else {
+          const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
+          const tikzMatch = tikzRegex.exec(visCodeText);
+          if (tikzMatch && tikzMatch[1].trim().length > 0) {
+            tikzCode = tikzMatch[1].trim();
         } else {
           tikzCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
         }
@@ -3313,17 +3341,76 @@ ${safeTikz}
     visContainer.innerHTML = ""; // Clear loading state
     visContainer.appendChild(visualDiv);
 
+    // Add Regenerate button below visualization
+    const regenWrapper = document.createElement("div");
+    regenWrapper.style.cssText = "margin-top: 12px; text-align: center;";
+    
+    const regenBtn = document.createElement("button");
+    regenBtn.className = "btn btn-outline btn-sm";
+    regenBtn.title = "Regenerate only this visualization image";
+    regenBtn.style.cssText = "font-size: 12px; padding: 6px 12px; border-radius: var(--radius-md); opacity: 0.85;";
+    regenBtn.innerHTML = `
+      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px;">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+        <path d="M3 3v5h5"></path>
+      </svg>
+      Regenerate Image
+    `;
+    regenBtn.addEventListener("click", () => {
+      startVisualization();
+    });
+    
+    regenWrapper.appendChild(regenBtn);
+    visContainer.appendChild(regenWrapper);
+
     scrollToBottom(true);
 
-  } catch (err) {
-    console.error("Visualization error:", err);
-    let shortErr = err && err.message ? err.message.split("\\n")[0] : "Unknown error";
+    } catch (err) {
+      console.error("Visualization error:", err);
+      let shortErr = err && err.message ? err.message.split("\\n")[0] : "Unknown error";
+      visContainer.innerHTML = `
+        <div style="margin-top: 1.5rem; padding: 0.85rem; border: 1px solid var(--danger); border-radius: var(--radius-md); color: var(--danger); font-size: 13px; background: rgba(239, 68, 68, 0.05); text-align: center;">
+          <div style="font-weight: 500; margin-bottom: 6px;">Visualization generation failed.</div>
+          <div style="opacity: 0.8; font-size: 11.5px; margin-bottom: 12px; word-break: break-all;">${shortErr.replace(/</g, "&lt;")}</div>
+          <button class="btn btn-outline btn-sm" style="border-color: var(--danger); color: var(--danger); font-size: 12px; padding: 6px 12px; border-radius: var(--radius-md);">
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px;">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+              <path d="M3 3v5h5"></path>
+            </svg>
+            Try Again
+          </button>
+        </div>
+      `;
+      const retryBtn = visContainer.querySelector('button');
+      if (retryBtn) {
+        retryBtn.addEventListener('click', () => startVisualization());
+      }
+      scrollToBottom(true);
+    }
+  };
+
+  if (state.visMode === "ask") {
     visContainer.innerHTML = `
-      <div style="margin-top: 1.5rem; padding: 0.75rem; border: 1px solid var(--danger); border-radius: var(--radius-sm); color: var(--danger); font-size: 13px; background: rgba(239, 68, 68, 0.05);">
-        Visualization generation failed.<br>
-        <span style="opacity: 0.8; font-size:11px;">${shortErr.replace(/</g, "&lt;")}</span>
+      <div style="margin-top: 1.5rem; text-align: center;">
+        <button class="btn btn-outline" id="btn-trigger-vis-${Date.now()}" style="padding: 10px 16px; border-radius: var(--radius-md); font-weight: 500;">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
+            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+            <circle cx="8.5" cy="8.5" r="1.5"></circle>
+            <polyline points="21 15 16 10 5 21"></polyline>
+          </svg>
+          Generate Visualization
+        </button>
       </div>
     `;
+    const triggerBtn = visContainer.querySelector('button');
+    if (triggerBtn) {
+      triggerBtn.addEventListener('click', () => {
+        startVisualization();
+      });
+    }
     scrollToBottom(true);
+  } else {
+    // visMode auto
+    startVisualization();
   }
 }

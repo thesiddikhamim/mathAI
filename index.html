@@ -197,7 +197,21 @@
 
               <div class="settings-section">
                 <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
-                  2. Model for Code Generation
+                  2. Model for Summary (Optional)
+                </label>
+                <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
+                  Pick the model that will summarize the solution before visualization. Select "None" to skip.
+                </p>
+                <div id="visSummaryModelsContainer">
+                  <!-- Populated via JS -->
+                </div>
+              </div>
+
+              <div class="settings-divider" style="margin: 20px 0;"></div>
+
+              <div class="settings-section">
+                <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
+                  3. Model for Code Generation
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
                   Pick the model that will be used to generate LaTeX TikZ code for visualization.
@@ -211,7 +225,7 @@
 
               <div class="settings-section">
                 <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
-                  3. Enable Visualization for Selected Chat Models
+                  4. Enable Visualization for Selected Chat Models
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
                   For which of the chat models you selected in "Model selection" do you want to generate visualizations?

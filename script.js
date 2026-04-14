@@ -34,6 +34,7 @@ const el = {
   enableVisualization: $("enableVisualization"),
   visModelsWrapper: $("visModelsWrapper"),
   visModelsContainer: $("visModelsContainer"),
+  visSummaryModelsContainer: $("visSummaryModelsContainer"),
   visEnabledModelsContainer: $("visEnabledModelsContainer"),
   visModeAsk: $("visModeAsk"),
   visModeAuto: $("visModeAuto"),
@@ -152,6 +153,7 @@ const state = {
   },
   enableVisualization: false,
   visMode: "ask", // "ask" or "auto"
+  visSummaryModelConfig: "none",
   visModelConfig: "ollama:qwen3.5:cloud",
   visEnabledModels: ["gemini:gemini-3.1-pro-preview", "ollama:qwen3.5:cloud"],
   // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
@@ -216,7 +218,6 @@ const AVAILABLE_MODELS = {
     { id: "meta-llama/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout 17B" },
     { id: "meta-llama/llama-4-maverick-17b-128e-instruct", label: "Llama 4 Maverick 17B" },
     { id: "groq/compound", label: "Compound Groq" },
-    { id: "qwen-qwq-32b", label: "Qwen QwQ 32B" },
     { id: "llama-3.1-8b-instant", label: "Llama 3.1 8B" },
     { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B" },
     { id: "openai/gpt-oss-120b", label: "GPT OSS 120B" },
@@ -512,6 +513,82 @@ function renderVisModels() {
   });
 }
 
+function renderVisSummaryModels() {
+  if (!el.visSummaryModelsContainer) return;
+  el.visSummaryModelsContainer.innerHTML = "";
+  
+  const providers = [
+    { id: "none", name: "None", icon: "slash" },
+    { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
+    { id: "ollama", name: "Ollama Cloud", icon: "ollama.svg" },
+    { id: "mistral", name: "Mistral AI", icon: "mistral.svg" },
+    { id: "groq", name: "Groq", icon: "groq.svg" }
+  ];
+
+  providers.forEach((p) => {
+    if (p.id === "none") {
+      const group = document.createElement("div");
+      group.className = "vis-provider-group";
+      group.style.marginBottom = "20px";
+      const isSelected = state.visSummaryModelConfig === "none";
+      group.innerHTML = `
+        <div class="models-grid">
+          <label class="model-checkbox-label">
+            <input type="radio" name="visSummaryModelRadio" class="model-radio" value="none" ${isSelected ? "checked" : ""}>
+            No Summary (Skip step)
+          </label>
+        </div>
+      `;
+      el.visSummaryModelsContainer.appendChild(group);
+      return;
+    }
+
+    const isEnabled = state.enabledProviders[p.id];
+    if (isEnabled && AVAILABLE_MODELS[p.id]) {
+      const group = document.createElement("div");
+      group.className = "vis-provider-group";
+      group.style.marginBottom = "20px";
+      
+      const header = document.createElement("div");
+      header.className = "provider-header-left";
+      header.style.marginBottom = "10px";
+      header.innerHTML = `
+        <img src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/${p.icon}" class="provider-logo" alt="${p.name}" style="width: 18px; height: 18px;" />
+        <span style="font-size:14px; font-weight:600; color:var(--text-secondary);">${p.name}</span>
+      `;
+      group.appendChild(header);
+      
+      const grid = document.createElement("div");
+      grid.className = "models-grid";
+      
+      AVAILABLE_MODELS[p.id].forEach(m => {
+        const val = p.id + ":" + m.id;
+        const isSelected = state.visSummaryModelConfig === val;
+        
+        const lbl = document.createElement("label");
+        lbl.className = "model-checkbox-label";
+        
+        lbl.innerHTML = `
+          <input type="radio" name="visSummaryModelRadio" class="model-radio" value="${val}" ${isSelected ? "checked" : ""}>
+          ${m.label}
+        `;
+        grid.appendChild(lbl);
+      });
+      
+      group.appendChild(grid);
+      el.visSummaryModelsContainer.appendChild(group);
+    }
+  });
+
+  el.visSummaryModelsContainer.querySelectorAll(".model-radio").forEach(radio => {
+    radio.addEventListener("change", e => {
+      if (e.target.checked) {
+        state.visSummaryModelConfig = e.target.value;
+      }
+    });
+  });
+}
+
 function openSettings() {
   el.apiKeyInput.value = state.apiKey;
   el.groqApiKeyInput.value = state.groqApiKey;
@@ -530,7 +607,9 @@ function openSettings() {
     el.visModeAuto.checked = state.visMode === "auto";
   }
   
-  renderVisModels(); renderVisEnabledModels();
+  renderVisModels(); 
+  renderVisSummaryModels();
+  renderVisEnabledModels();
   
   renderSettingsModels();
   
@@ -658,8 +737,12 @@ el.saveKey.addEventListener("click", () => {
   localStorage.setItem("mathai-enable-vis", state.enableVisualization);
   localStorage.setItem("mathai-vis-mode", state.visMode);
   
+  const oldVisModel = localStorage.getItem("mathai-vis-model");
+  const oldVisSummary = localStorage.getItem("mathai-vis-summary-model");
+  
   if (state.visModelConfig) {
     localStorage.setItem("mathai-vis-model", state.visModelConfig);
+    localStorage.setItem("mathai-vis-summary-model", state.visSummaryModelConfig);
     localStorage.setItem("mathai-vis-enabled", JSON.stringify(state.visEnabledModels));
   }
 
@@ -670,6 +753,14 @@ el.saveKey.addEventListener("click", () => {
 
   showSettingsSt("✓ All settings saved!", "success");
   setTimeout(closeSettings, 1100);
+
+  // If a viz model changed and there's an active visualization context that's already solved,
+  // instantly autorefresh it for immediate seamless feedback.
+  if (state.enableVisualization && state.isSolved && typeof window.lastActiveVisualization === "function") {
+    if (oldVisModel !== state.visModelConfig || oldVisSummary !== state.visSummaryModelConfig) {
+      window.lastActiveVisualization();
+    }
+  }
 });
 
 el.clearKey.addEventListener("click", () => {
@@ -693,6 +784,7 @@ el.clearKey.addEventListener("click", () => {
   state.enableVisualization = false;
   state.visMode = "ask";
   state.visModelConfig = "ollama:qwen3.5:cloud";
+  state.visSummaryModelConfig = "none";
   if (el.enableVisualization) el.enableVisualization.checked = false;
   if (el.visModeAsk && el.visModeAuto) {
     el.visModeAsk.checked = true;
@@ -700,12 +792,14 @@ el.clearKey.addEventListener("click", () => {
   }
   
   renderSettingsModels();
-  renderVisModels(); renderVisEnabledModels();
+  renderVisModels(); 
+  renderVisSummaryModels();
+  renderVisEnabledModels();
   
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
     "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id",
-    "mathai-enable-vis", "mathai-vis-mode", "mathai-vis-model"
+    "mathai-enable-vis", "mathai-vis-mode", "mathai-vis-model", "mathai-vis-summary-model"
   ];
   keys.forEach(k => localStorage.removeItem(k));
   
@@ -732,6 +826,7 @@ function loadSettings() {
   const enableVis = localStorage.getItem("mathai-enable-vis");
   const visModMode = localStorage.getItem("mathai-vis-mode");
   const visMod = localStorage.getItem("mathai-vis-model");
+  const visSumMod = localStorage.getItem("mathai-vis-summary-model");
   const visEnList = localStorage.getItem("mathai-vis-enabled");
 
   if (k) state.apiKey = k;
@@ -742,6 +837,7 @@ function loadSettings() {
   if (enableVis !== null) state.enableVisualization = enableVis === "true";
   if (visModMode) state.visMode = visModMode;
   if (visMod) state.visModelConfig = visMod;
+  if (visSumMod) state.visSummaryModelConfig = visSumMod;
   if (visEnList) {
     try {
       state.visEnabledModels = JSON.parse(visEnList);
@@ -3205,26 +3301,11 @@ function runPythonInWorker(code) {
 
 async function renderVisualization(aiText, wrapper, tabId) {
   if (!state.enableVisualization) return;
-  if (!state.visModelConfig) return;
 
-  // Check if visualization is enabled for the current chat model
-  const modelToCheck = tabId || state.activeTabId;
-  if (!state.visEnabledModels.includes(modelToCheck)) return;
+  const visContainer = document.createElement("div");
+  visContainer.className = "vis-container";
+  wrapper.appendChild(visContainer);
 
-  const [visProvider, visModel] = state.visModelConfig.split(":");
-  const providerKey = {
-    gemini: state.apiKey,
-    groq: state.groqApiKey,
-    mistral: state.mistralApiKey,
-    ollama: state.ollamaApiKey,
-  }[visProvider];
-
-  if (!providerKey) {
-    console.warn("Skipping visualization: Missing API key for " + visProvider);
-    return;
-  }
-
-          // Add loading UI component reference function
   const updateVisLoadingUI = (text) => {
     visContainer.innerHTML = `
       <div style="margin-top: 1.5rem; padding: 1rem; border: 1px dashed var(--border); border-radius: var(--radius-md); text-align: center; color: var(--text-secondary); background: var(--bg-tertiary);">
@@ -3237,13 +3318,81 @@ async function renderVisualization(aiText, wrapper, tabId) {
     scrollToBottom(true);
   };
 
-  const visContainer = document.createElement("div");
-  visContainer.className = "vis-container";
-  wrapper.appendChild(visContainer);
+  // Store summary in outer scope so it can be reused
+  let savedSummaryText = null;
+  let savedSummaryConfig = null;
 
   const startVisualization = async () => {
+    if (!state.visModelConfig) return;
+
+    // Dynamically check enabled models on each run
+    const modelToCheck = tabId || state.activeTabId;
+    if (!state.visEnabledModels.includes(modelToCheck)) return;
+
+    const [visProvider, visModel] = state.visModelConfig.split(":");
+    const providerKey = {
+      gemini: state.apiKey,
+      groq: state.groqApiKey,
+      mistral: state.mistralApiKey,
+      ollama: state.ollamaApiKey,
+    }[visProvider];
+
+    if (!providerKey) {
+      console.warn("Skipping visualization: Missing API key for " + visProvider);
+      return;
+    }
+
     try {
       const noop = () => {};
+
+      // SUMMARY AI STEP — Optional summarization before coding
+      let summaryText = aiText;
+      
+      const isSummaryEnabled = state.visSummaryModelConfig && state.visSummaryModelConfig !== "none" && aiText.length > 500;
+      
+      if (isSummaryEnabled) {
+        // Reuse summary if the summary config hasn't changed
+        if (savedSummaryText && savedSummaryConfig === state.visSummaryModelConfig) {
+          summaryText = savedSummaryText;
+          // Optionally, don't even show a UI update since it's instant
+        } else {
+          const [summaryProvider, summaryModel] = state.visSummaryModelConfig.split(":");
+          const summaryProviderKey = {
+            gemini: state.apiKey,
+            groq: state.groqApiKey,
+            mistral: state.mistralApiKey,
+            ollama: state.ollamaApiKey,
+          }[summaryProvider];
+
+          if (summaryProviderKey) {
+            try {
+              updateVisLoadingUI(`Summarizing via ${summaryModel}...`);
+              const summaryPrompt = `Summarize this math solution concisely in bullet points, preserving all key equations, variables, equations and steps so that another AI can understand how the question is solved:\n\n${aiText}`;
+              
+              if (summaryProvider === "gemini") {
+                const summaryHist = [{ role: "user", parts: [{ text: summaryPrompt }] }];
+                summaryText = await callGeminiChat(summaryHist, summaryProviderKey, summaryModel, noop);
+              } else if (summaryProvider === "groq") {
+                summaryText = await callGroqFollowUp([{ role: "user", content: summaryPrompt }], summaryProviderKey, summaryModel, noop);
+              } else if (summaryProvider === "mistral") {
+                summaryText = await callMistralFollowUp([{ role: "user", content: summaryPrompt }], summaryProviderKey, summaryModel, noop);
+              } else if (summaryProvider === "ollama") {
+                summaryText = await callOllamaFollowUp([{ role: "user", content: summaryPrompt }], summaryProviderKey, summaryModel, noop);
+              }
+              
+              savedSummaryText = summaryText;
+              savedSummaryConfig = state.visSummaryModelConfig;
+            } catch (e) {
+              console.warn("Summary generation failed, proceeding with full text:", e);
+              summaryText = aiText;
+            }
+          }
+        }
+      } else {
+        // Reset summary caching if it was disabled
+        savedSummaryText = null;
+        savedSummaryConfig = null;
+      }
 
       // Generate TikZ directly from the main content
       updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
@@ -3252,7 +3401,7 @@ async function renderVisualization(aiText, wrapper, tabId) {
 Your task is to design a precise, publication-quality mathematical visualization for the ORIGINAL QUESTION and INITIAL SETUP (including variables, quation and all the steps to solve it) using TikZ. Do NOT visualize the final answer.
 
 Context:
-${aiText}
+${summaryText}
 
 Rules for University-Level Textbook Aesthetics:
 1. STRICT FORMATTING: ONLY output valid TikZ code enclosed in a \`\`\`latex ... \`\`\` block. NO document preamble (no \\documentclass). MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}. No conversational text.
@@ -3417,4 +3566,8 @@ ${safeTikz}
     // visMode auto
     startVisualization();
   }
+
+  // Bind the latest visualization run to be globally callable
+  // so `saveSettings` can auto-trigger it if models change.
+  window.lastActiveVisualization = startVisualization;
 }

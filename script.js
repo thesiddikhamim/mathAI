@@ -3301,6 +3301,10 @@ Rules for University-Level Textbook Aesthetics:
    - Labels: Position text cleanly using positioning anchors (e.g., \`above left\`, \`below right\`) so it NEVER overlaps with lines.
    - Ticks and Intervals: When plotting large coordinate values (e.g. 100, 200, etc.), ALWAYS adjust the tick intervals to larger steps (e.g. 50, 100) instead of making very small gaps like 5 or 10. Avoid cluttering the plot with too many labels or grid lines.
    - Scale: Ensure geometric proportions are logically sound and properly spaced.
+4. RELIABILITY & ERROR AVOIDANCE:
+   - Semicolons: EVERY TikZ path/command (like \\draw, \\node, \\fill, \\path) MUST end with a semicolon (;). Do not forget this.
+   - PGF Math Domains: When using \`plot\` or \`sqrt\`, ENSURE the domain is strictly non-negative for the square root function, otherwise PGF Math will crash. For complex algebraic curves, use parameters that won't result in calculating \`sqrt(negative_number)\`.
+   - Control Sequences: Do NOT use undefined control sequences or incorrect escapes like \`\\r\` or \`\\q\` in mathematical formulas. Variables should be letters like $r$, $q$, not escaped sequences. Use standard math commands.
 `;
 
       let visCodeText = "";

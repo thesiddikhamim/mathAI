@@ -3294,10 +3294,10 @@ ${aiText}
 
 Rules for University-Level Textbook Aesthetics:
 1. STRICT FORMATTING: ONLY output valid TikZ, PGFPlots code within a \`\`\`latex ... \`\`\` block. MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}.
-2. PGFPLOTS VS TIKZ:
-   - Use PGFPlots (\`\\begin{axis}...\`) for any function plots, data visualization, or coordinate-based graphs. Set \`axis lines=middle\`, \`xlabel\`, and \`ylabel\` for professional results.
-   - Use TikZ commands (\`\\draw\`, \`\\node\`, etc.) for geometric diagrams, labels, and custom annotations.
-   - You can combine them by nesting the \`axis\` environment inside the \`tikzpicture\`.
+2. TOOL SELECTION:
+   - Use PGFPlots (\`\\begin{axis}...\`) for any function plots, 3D surfaces, data visualization, or coordinate-based graphs.
+   - Use TikZ commands (\`\\draw\`, \`\\node\`, etc.) for geometric diagrams (circles, triangles), flowcharts, and custom annotations.
+   - COMBINING THEM: For annotated graphs, draw TikZ elements INSIDE the \`axis\` environment. Use axis coordinates (e.g., \`(axis cs:2,4)\`) to ensure callouts and arrows stay perfectly aligned with the plot data.
 3. PROFESSIONAL STYLING:
    - Typography: Use $...$ for all mathematical text.
    - Colors: Use academic colors (black, blue!70!black, red!70!black).
@@ -3306,6 +3306,7 @@ Rules for University-Level Textbook Aesthetics:
    - Semicolons: Every TikZ, PGFPlots command MUST end with a semicolon (;).
    - Domains: Ensure PGFPlots domains don't cause math errors (e.g., negative values in sqrt).
    - Driver Compatibility: NEVER use \`shader=interp\`. It is not supported by our SVG renderer. Use \`shader=flat\`, \`shader=faceted\`, or standard coloring instead.
+   - Math in Options: NEVER place raw math expressions (like \`$x_2$\`) directly inside \`[...]\` options. Use proper keys like \`node contents={...}\`, \`label={...}\`, or \`pin={...}\`. Always wrap labels containing math or complex characters in curly braces \`{...}\` (e.g., \`label={[$x_2$]}\`).
    - Preamble: Assume \\usepackage{pgfplots} and \\pgfplotsset{compat=1.18} are already in the preamble.`;
 
       let visCodeText = "";

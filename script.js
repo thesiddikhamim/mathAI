@@ -3305,6 +3305,7 @@ Rules for University-Level Textbook Aesthetics:
 4. RELIABILITY:
    - Semicolons: Every TikZ, PGFPlots command MUST end with a semicolon (;).
    - Domains: Ensure PGFPlots domains don't cause math errors (e.g., negative values in sqrt).
+   - Driver Compatibility: NEVER use \`shader=interp\`. It is not supported by our SVG renderer. Use \`shader=flat\`, \`shader=faceted\`, or standard coloring instead.
    - Preamble: Assume \\usepackage{pgfplots} and \\pgfplotsset{compat=1.18} are already in the preamble.`;
 
       let visCodeText = "";

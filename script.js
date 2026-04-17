@@ -211,9 +211,9 @@ const AVAILABLE_MODELS = {
     { id: "mistral-medium-latest", label: "Mistral Medium" },
     { id: "pixtral-large-latest", label: "Pixtral Large" },
     { id: "codestral-latest", label: "Codestral" },
+    { id: "codestral-2508", label: "Codestral 2508" },
     { id: "devstral-2512", label: "Devstral 2512" },
-    { id: "devstral-latest", label: "Devstral Latest" },
-    { id: "labs-leanstral-2603", label: "Labs Leanstral 2603" }
+    { id: "devstral-latest", label: "Devstral Latest" }
   ],
   groq: [
     { id: "meta-llama/llama-4-scout-17b-16e-instruct", label: "Llama 4 Scout 17B" },

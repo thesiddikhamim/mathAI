@@ -3353,7 +3353,7 @@ Rules for University-Level Textbook Aesthetics:
 \\usepackage{xcolor}
 \\usepackage{pgfplots}
 \\pgfplotsset{compat=1.18}
-\\usetikzlibrary{calc,angles,quotes,intersections,positioning,arrows.meta,decorations.markings,backgrounds}
+\\usetikzlibrary{calc,angles,quotes,intersections,positioning,arrows.meta,decorations.markings,backgrounds,matrix}
 \\begin{document}
 ${safeTikz}
 \\end{document}`;

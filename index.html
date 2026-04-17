@@ -196,8 +196,33 @@
               <div class="settings-divider" style="margin: 20px 0;"></div>
 
               <div class="settings-section">
+                <div class="settings-provider-header" style="justify-content: space-between; padding: 0; border: none; margin-bottom: 12px;">
+                  <label class="settings-label" style="display: block; margin: 0; font-weight: 600; color: var(--accent); text-transform: uppercase;">
+                    2. Visualization Planner Agent
+                  </label>
+                  <label class="toggle-switch">
+                    <input type="checkbox" id="enableVisPlanner" />
+                    <span class="slider"></span>
+                  </label>
+                </div>
+                <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
+                  When enabled, an intermediate agent will summarize the solution and plan the best visual layout (2D, 3D, Graph, etc.) before the code is written.
+                </p>
+                <div id="visPlannerModelsWrapper" class="hidden">
+                  <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 12px; font-weight: 500;">
+                    Pick the model for the Planner Agent:
+                  </p>
+                  <div id="visPlannerModelsContainer">
+                    <!-- Populated via JS -->
+                  </div>
+                </div>
+              </div>
+
+              <div class="settings-divider" style="margin: 20px 0;"></div>
+
+              <div class="settings-section">
                 <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
-                  2. Model for Code Generation
+                  3. Model for Code Generation
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
                   Pick the model that will be used to generate LaTeX TikZ code for visualization.
@@ -211,7 +236,7 @@
 
               <div class="settings-section">
                 <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
-                  3. Enable Visualization for Selected Chat Models
+                  4. Enable Visualization for Selected Chat Models
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
                   For which of the chat models you selected in "Model selection" do you want to generate visualizations?

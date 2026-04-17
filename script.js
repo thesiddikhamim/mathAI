@@ -37,6 +37,9 @@ const el = {
   visEnabledModelsContainer: $("visEnabledModelsContainer"),
   visModeAsk: $("visModeAsk"),
   visModeAuto: $("visModeAuto"),
+  enableVisPlanner: $("enableVisPlanner"),
+  visPlannerModelsWrapper: $("visPlannerModelsWrapper"),
+  visPlannerModelsContainer: $("visPlannerModelsContainer"),
 
   apiKeyInput: $("apiKeyInput"),
   toggleKeyVis: $("toggleKeyVisibility"),
@@ -153,6 +156,8 @@ const state = {
   enableVisualization: false,
   visMode: "ask", // "ask" or "auto"
   visModelConfig: "ollama:qwen3.5:cloud",
+  enableVisPlanner: false,
+  visPlannerModelConfig: "ollama:qwen3.5:cloud",
   visEnabledModels: ["gemini:gemini-3.1-pro-preview", "ollama:qwen3.5:cloud"],
   // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
   activeTabId: "gemini:gemini-3.1-pro-preview",
@@ -366,7 +371,9 @@ function renderSettingsModels() {
     cb.addEventListener("change", e => {
       state.enabledProviders[e.target.dataset.provider] = e.target.checked;
       renderSettingsModels(); // re-render to show/hide models
-      renderVisModels(); renderVisEnabledModels(); // re-render visualization models list
+      renderVisModels("coder");
+      renderVisModels("planner");
+      renderVisEnabledModels(); // re-render visualization models list
     });
   });
 
@@ -454,9 +461,13 @@ function renderVisEnabledModels() {
 
 
 
-function renderVisModels() {
-  if (!el.visModelsContainer) return;
-  el.visModelsContainer.innerHTML = "";
+function renderVisModels(type = "coder") {
+  const container = type === "planner" ? el.visPlannerModelsContainer : el.visModelsContainer;
+  const currentConfig = type === "planner" ? state.visPlannerModelConfig : state.visModelConfig;
+  const radioName = type === "planner" ? "visPlannerModelGlobalRadio" : "visModelGlobalRadio";
+
+  if (!container) return;
+  container.innerHTML = "";
   
   const providers = [
     { id: "gemini", name: "Google Gemini", icon: "gemini.svg" },
@@ -465,7 +476,7 @@ function renderVisModels() {
     { id: "groq", name: "Groq", icon: "groq.svg" }
   ];
 
-  providers.forEach((p, index) => {
+  providers.forEach((p) => {
     const isEnabled = state.enabledProviders[p.id];
     if (isEnabled && AVAILABLE_MODELS[p.id]) {
       const group = document.createElement("div");
@@ -486,30 +497,32 @@ function renderVisModels() {
       
       AVAILABLE_MODELS[p.id].forEach(m => {
         const val = p.id + ":" + m.id;
-        const isSelected = state.visModelConfig === val;
+        const isSelected = currentConfig === val;
         
         const lbl = document.createElement("label");
         lbl.className = "model-checkbox-label";
         
         lbl.innerHTML = `
-          <input type="radio" name="visModelGlobalRadio" class="model-radio" value="${val}" ${isSelected ? "checked" : ""}>
+          <input type="radio" name="${radioName}" class="model-radio" value="${val}" ${isSelected ? "checked" : ""}>
           ${m.label}
         `;
         grid.appendChild(lbl);
       });
       
       group.appendChild(grid);
-      el.visModelsContainer.appendChild(group);
-      
-      // Add a mini divider if it's not the last enabled one, but visual spacing is usually enough.
+      container.appendChild(group);
     }
   });
 
   // Add event listeners for the radio buttons
-  el.visModelsContainer.querySelectorAll(".model-radio").forEach(radio => {
+  container.querySelectorAll(".model-radio").forEach(radio => {
     radio.addEventListener("change", e => {
       if (e.target.checked) {
-        state.visModelConfig = e.target.value;
+        if (type === "planner") {
+          state.visPlannerModelConfig = e.target.value;
+        } else {
+          state.visModelConfig = e.target.value;
+        }
       }
     });
   });
@@ -532,8 +545,17 @@ function openSettings() {
     el.visModeAsk.checked = state.visMode === "ask";
     el.visModeAuto.checked = state.visMode === "auto";
   }
+
+  if (el.enableVisPlanner) {
+    el.enableVisPlanner.checked = state.enableVisPlanner;
+    if (el.visPlannerModelsWrapper) {
+      el.visPlannerModelsWrapper.classList.toggle("hidden", !state.enableVisPlanner);
+    }
+  }
   
-  renderVisModels(); renderVisEnabledModels();
+  renderVisModels("coder");
+  renderVisModels("planner");
+  renderVisEnabledModels();
   
   renderSettingsModels();
   
@@ -608,6 +630,18 @@ if (el.enableVisualization) {
   });
 }
 
+if (el.enableVisPlanner) {
+  el.enableVisPlanner.addEventListener("change", (e) => {
+    if (el.visPlannerModelsWrapper) {
+      if (e.target.checked) {
+        el.visPlannerModelsWrapper.classList.remove("hidden");
+      } else {
+        el.visPlannerModelsWrapper.classList.add("hidden");
+      }
+    }
+  });
+}
+
 if (el.visModeAsk && el.visModeAuto) {
   el.visModeAsk.addEventListener("change", (e) => {
     if (e.target.checked) state.visMode = "ask";
@@ -666,6 +700,12 @@ el.saveKey.addEventListener("click", () => {
     localStorage.setItem("mathai-vis-enabled", JSON.stringify(state.visEnabledModels));
   }
 
+  state.enableVisPlanner = el.enableVisPlanner ? el.enableVisPlanner.checked : false;
+  localStorage.setItem("mathai-enable-vis-planner", state.enableVisPlanner);
+  if (state.visPlannerModelConfig) {
+    localStorage.setItem("mathai-vis-planner-model", state.visPlannerModelConfig);
+  }
+
   localStorage.setItem("mathai-enabled-providers", JSON.stringify(state.enabledProviders));
   localStorage.setItem("mathai-selected-models", JSON.stringify(state.selectedModels));
 
@@ -716,20 +756,20 @@ el.clearKey.addEventListener("click", () => {
   
   state.enableVisualization = false;
   state.visMode = "ask";
-  state.visModelConfig = "ollama:qwen3.5:cloud";
-  if (el.enableVisualization) el.enableVisualization.checked = false;
-  if (el.visModeAsk && el.visModeAuto) {
-    el.visModeAsk.checked = true;
-    el.visModeAuto.checked = false;
-  }
-  
+  state.enableVisPlanner = false;
+  state.visPlannerModelConfig = "ollama:qwen3.5:cloud";
+  if (el.enableVisPlanner) el.enableVisPlanner.checked = false;
+
   renderSettingsModels();
-  renderVisModels(); renderVisEnabledModels();
+  renderVisModels("coder");
+  renderVisModels("planner");
+  renderVisEnabledModels();
   
   const keys = [
     "mathai-apikey", "mathai-groq-apikey", "mathai-mistral-apikey", "mathai-ollama-apikey",
     "mathai-enabled-providers", "mathai-selected-models", "mathai-active-tab-id",
-    "mathai-enable-vis", "mathai-vis-mode", "mathai-vis-model"
+    "mathai-enable-vis", "mathai-vis-mode", "mathai-vis-model",
+    "mathai-enable-vis-planner", "mathai-vis-planner-model"
   ];
   keys.forEach(k => localStorage.removeItem(k));
   
@@ -766,6 +806,11 @@ function loadSettings() {
   if (enableVis !== null) state.enableVisualization = enableVis === "true";
   if (visModMode) state.visMode = visModMode;
   if (visMod) state.visModelConfig = visMod;
+
+  const enableVisPlanner = localStorage.getItem("mathai-enable-vis-planner");
+  const visPlannerMod = localStorage.getItem("mathai-vis-planner-model");
+  if (enableVisPlanner !== null) state.enableVisPlanner = enableVisPlanner === "true";
+  if (visPlannerMod) state.visPlannerModelConfig = visPlannerMod;
   if (visEnList) {
     try {
       state.visEnabledModels = JSON.parse(visEnList);
@@ -3250,8 +3295,16 @@ async function renderVisualization(aiText, wrapper, tabId) {
     ollama: state.ollamaApiKey,
   }[visProvider];
 
-  if (!providerKey) {
-    console.warn("Skipping visualization: Missing API key for " + visProvider);
+  const [planProvider, planModel] = state.visPlannerModelConfig.split(":");
+  const plannerKey = {
+    gemini: state.apiKey,
+    groq: state.groqApiKey,
+    mistral: state.mistralApiKey,
+    ollama: state.ollamaApiKey,
+  }[planProvider];
+
+  if (!providerKey || (state.enableVisPlanner && !plannerKey)) {
+    console.warn("Skipping visualization: Missing API key.");
     return;
   }
 
@@ -3279,18 +3332,55 @@ async function renderVisualization(aiText, wrapper, tabId) {
     }
   };
 
+  let currentPlanText = null;
+
   const startVisualization = async () => {
     try {
       const noop = () => {};
 
-      // Generate TikZ directly from the main content
-      updateVisLoadingUI(`Writing TikZ/PGFPlots code via ${visModel}...`);
-
-      const coderPrompt = `You are an expert LaTeX TikZ and PGFPlots visualization coder. I am providing you with the step-by-step solution to a math problem.
-Your task is to design a precise, publication-quality mathematical visualization for the QUESTION and the SETUP to solve the problem (including variables) using TikZ and PGFPlots. First make a plan how to visualize the question and the setup using the context below then start writing code following the rules. 
+      if (state.enableVisPlanner && !currentPlanText) {
+        const plannerPrompt = `You are an expert mathematical visualization designer. I am providing you with a step-by-step solution to a math problem.
+Your task is to summarize the key points of the solution and design a detailed plan for a visualization.
 
 Context:
 ${aiText}
+
+Rules for the Plan:
+1. DESIGN ONLY: Describe exactly what to visualize (e.g., "A 3D surface plot of the function...", "A geometric diagram showing the tangent line...", "A coordinate graph with an area shaded...").
+2. TYPE SELECTION: Explicitly state the visualization type (2D Graph, 3D Surface, Geometry Diagram, or Flowchart).
+3. PLACEMENT: Describe where labels, points, and annotations should go for maximum clarity.
+4. NO CODE: Do NOT write any TikZ or PGFPlots code. Focus on the visual strategy.`;
+
+        updateVisLoadingUI(`Designing visualization plan via ${planModel}...`);
+        
+        let planResp = "";
+        if (planProvider === "gemini") {
+          planResp = await callGeminiChat([{ role: "user", parts: [{ text: plannerPrompt }] }], plannerKey, planModel, noop);
+        } else if (planProvider === "groq") {
+          planResp = await callGroqFollowUp([{ role: "user", content: plannerPrompt }], plannerKey, planModel, noop);
+        } else if (planProvider === "mistral") {
+          planResp = await callMistralFollowUp([{ role: "user", content: plannerPrompt }], plannerKey, planModel, noop);
+        } else if (planProvider === "ollama") {
+          planResp = await callOllamaFollowUp([{ role: "user", content: plannerPrompt }], plannerKey, planModel, noop);
+        }
+        
+          if (planResp && planResp.trim().length > 0) {
+            currentPlanText = planResp;
+          }
+        }
+
+        // Use the plan if one exists, otherwise fall back to raw solution
+        const effectiveText = currentPlanText || aiText;
+
+        // Generate TikZ from the plan (or raw content)
+        updateVisLoadingUI(`Writing TikZ/PGFPlots code via ${visModel}...`);
+
+        const coderPrompt = `You are an expert LaTeX TikZ and PGFPlots visualization coder.
+I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. 
+Your task is to implement this visualization exactly using TikZ and PGFPlots.
+
+Source Material:
+${effectiveText}
 
 Rules for University-Level Textbook Aesthetics:
 1. STRICT FORMATTING: ONLY output valid TikZ, PGFPlots code within a \`\`\`latex ... \`\`\` block. MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}.

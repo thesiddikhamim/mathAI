@@ -3287,7 +3287,7 @@ async function renderVisualization(aiText, wrapper, tabId) {
       updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
 
       const coderPrompt = `You are an expert LaTeX TikZ visualization coder. I am providing you with the step-by-step solution to a math problem.
-Your task is to design a precise, publication-quality mathematical visualization for the ORIGINAL QUESTION and the SETUP to solve the problem (including variables) using TikZ. First make a plan how to visualize the question and the setup using the context below then start writing code following the rules. 
+Your task is to design a precise, publication-quality mathematical visualization for the QUESTION and the SETUP to solve the problem (including variables) using TikZ. First make a plan how to visualize the question and the setup using the context below then start writing code following the rules. 
 
 Context:
 ${aiText}

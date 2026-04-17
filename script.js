@@ -3397,6 +3397,7 @@ Rules for University-Level Textbook Aesthetics:
    - Semicolons: Every TikZ, PGFPlots command MUST end with a semicolon (;).
    - Domains: Ensure PGFPlots domains don't cause math errors (e.g., negative values in sqrt).
    - Driver Compatibility: NEVER use \`shader=interp\`. It is not supported by our SVG renderer. Use \`shader=flat\`, \`shader=faceted\`, or standard coloring instead.
+   - No External Files: NEVER use \`gnuplot\` or any contouring/plotting features that require external files (e.g., \`contour gnuplot\`). These are not supported by the renderer. Use native PGFPlots surfaces or TikZ paths instead.
    - Math in Options: NEVER place raw math expressions (like \`$x_2$\`) directly inside \`[...]\` options. Use proper keys like \`node contents={...}\`, \`label={...}\`, or \`pin={...}\`. Always wrap labels containing math or complex characters in curly braces \`{...}\` (e.g., \`label={[$x_2$]}\`).
    - Preamble: Assume \\usepackage{pgfplots} and \\pgfplotsset{compat=1.18} are already in the preamble.`;
 

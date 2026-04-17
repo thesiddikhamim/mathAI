@@ -1414,7 +1414,14 @@ function handleCarouselTabClick(newTabId, newProviderId, newModelId, cardEl) {
   if (cached) {
     state.rawResponse = cached.rawResponse;
     state.chatHistory = cached.chatHistory;
-    el.solutionContent.innerHTML = cached.solutionHTML;
+    
+    el.solutionContent.innerHTML = "";
+    if (state.jobNodes[newTabId]) {
+      el.solutionContent.appendChild(state.jobNodes[newTabId]);
+    } else {
+      el.solutionContent.innerHTML = cached.solutionHTML;
+    }
+    
     state.isSolved = true;
     setSolutionState("content");
     enableOutputBtns();

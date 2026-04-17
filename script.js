@@ -3284,7 +3284,7 @@ async function renderVisualization(aiText, wrapper, tabId) {
       const noop = () => {};
 
       // Generate TikZ directly from the main content
-      updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
+      updateVisLoadingUI(`Writing TikZ/PGFPlots code via ${visModel}...`);
 
       const coderPrompt = `You are an expert LaTeX TikZ and PGFPlots visualization coder. I am providing you with the step-by-step solution to a math problem.
 Your task is to design a precise, publication-quality mathematical visualization for the QUESTION and the SETUP to solve the problem (including variables) using TikZ and PGFPlots. First make a plan how to visualize the question and the setup using the context below then start writing code following the rules. 
@@ -3342,7 +3342,7 @@ Rules for University-Level Textbook Aesthetics:
        throw new Error("The AI model failed to produce valid TikZ code. Please try again.");
     }
 
-    updateVisLoadingUI("Rendering TikZ via Web API...");
+    updateVisLoadingUI("Rendering TikZ/PGFPlots via Web API...");
     
     let safeTikz = tikzCode.replace(/\\documentclass.*?\n/g, '').replace(/\\usepackage.*?\n/g, '').replace(/\\begin{document}/g, '').replace(/\\end{document}/g, '');
     const printCode = `\\documentclass[tikz,border=2pt]{standalone}

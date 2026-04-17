@@ -3286,29 +3286,26 @@ async function renderVisualization(aiText, wrapper, tabId) {
       // Generate TikZ directly from the main content
       updateVisLoadingUI(`Writing TikZ code via ${visModel}...`);
 
-      const coderPrompt = `You are an expert LaTeX TikZ visualization coder. I am providing you with the step-by-step solution to a math problem.
-Your task is to design a precise, publication-quality mathematical visualization for the QUESTION and the SETUP to solve the problem (including variables) using TikZ. First make a plan how to visualize the question and the setup using the context below then start writing code following the rules. 
+      const coderPrompt = `You are an expert LaTeX TikZ and PGFPlots visualization coder. I am providing you with the step-by-step solution to a math problem.
+Your task is to design a precise, publication-quality mathematical visualization for the QUESTION and the SETUP to solve the problem (including variables) using TikZ and PGFPlots. First make a plan how to visualize the question and the setup using the context below then start writing code following the rules. 
 
 Context:
 ${aiText}
 
 Rules for University-Level Textbook Aesthetics:
-1. STRICT FORMATTING: ONLY output valid TikZ code enclosed in a \`\`\`latex ... \`\`\` block. NO document preamble (no \\documentclass). MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}. No conversational text.
-2. PROFESSIONAL STYLING:
-   - Typography: All mathematical variables, expressions, and axis labels MUST be wrapped in $...$ to ensure beautiful LaTeX math font rendering.
-   - Colors: Use elegant, academic colors (e.g., solid black for primary lines, dark gray for grids/axes, blue!80!black or red!80!black for emphasis). ONLY use standard xcolor colors, NEVER generate undefined color names like "deepblue" or "darkred" without defining them. Avoid bright neon colors.
-   - Fills: When shading areas, use subtle tints with low opacity (e.g., \`fill=black!10\`, \`fill=blue!10\`).
-   - Line Weights: Use \`thick\` (0.8pt) for primary geometric outlines/functions, and \`thin\` or \`dashed\` for auxiliary lines, grids, or projections.
-3. PRECISION & LAYOUT:
-   - Proper Arrows: Use \`>=stealth\` or \`>=latex\` for standard mathematical arrowheads on axes or vectors.
-   - Labels: Position text cleanly using positioning anchors (e.g., \`above left\`, \`below right\`) so it NEVER overlaps with lines.
-   - Ticks and Intervals: When plotting large coordinate values (e.g. 100, 200, etc.), ALWAYS adjust the tick intervals to larger steps (e.g. 50, 100) instead of making very small gaps like 5 or 10. Avoid cluttering the plot with too many labels or grid lines.
-   - Scale: Ensure geometric proportions are logically sound and properly spaced.
-4. RELIABILITY & ERROR AVOIDANCE:
-   - Semicolons: EVERY TikZ path/command (like \\draw, \\node, \\fill, \\path) MUST end with a semicolon (;). Do not forget this.
-   - PGF Math Domains: When using \`plot\` or \`sqrt\`, ENSURE the domain is strictly non-negative for the square root function, otherwise PGF Math will crash. For complex algebraic curves, use parameters that won't result in calculating \`sqrt(negative_number)\`.
-   - Control Sequences: Do NOT use undefined control sequences or incorrect escapes like \`\\r\` or \`\\q\` in mathematical formulas. Variables should be letters like $r$, $q$, not escaped sequences. Use standard math commands.
-`;
+1. STRICT FORMATTING: ONLY output valid TikZ, PGFPlots code within a \`\`\`latex ... \`\`\` block. MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}.
+2. PGFPLOTS VS TIKZ:
+   - Use PGFPlots (\`\\begin{axis}...\`) for any function plots, data visualization, or coordinate-based graphs. Set \`axis lines=middle\`, \`xlabel\`, and \`ylabel\` for professional results.
+   - Use TikZ commands (\`\\draw\`, \`\\node\`, etc.) for geometric diagrams, labels, and custom annotations.
+   - You can combine them by nesting the \`axis\` environment inside the \`tikzpicture\`.
+3. PROFESSIONAL STYLING:
+   - Typography: Use $...$ for all mathematical text.
+   - Colors: Use academic colors (black, blue!70!black, red!70!black).
+   - Line Weights: Use \`thick\` for main curves/shapes and \`thin\` for grids/axes.
+4. RELIABILITY:
+   - Semicolons: Every TikZ, PGFPlots command MUST end with a semicolon (;).
+   - Domains: Ensure PGFPlots domains don't cause math errors (e.g., negative values in sqrt).
+   - Preamble: Assume \\usepackage{pgfplots} and \\pgfplotsset{compat=1.18} are already in the preamble.`;
 
       let visCodeText = "";
       if (visProvider === "gemini") {
@@ -3352,6 +3349,8 @@ Rules for University-Level Textbook Aesthetics:
 \\usepackage{amsmath}
 \\usepackage{amssymb}
 \\usepackage{xcolor}
+\\usepackage{pgfplots}
+\\pgfplotsset{compat=1.18}
 \\usetikzlibrary{calc,angles,quotes,intersections,positioning,arrows.meta,decorations.markings,backgrounds}
 \\begin{document}
 ${safeTikz}

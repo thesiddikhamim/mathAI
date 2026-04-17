@@ -3298,6 +3298,7 @@ Rules for University-Level Textbook Aesthetics:
    - Use PGFPlots (\`\\begin{axis}...\`) for any function plots, 3D surfaces, data visualization, or coordinate-based graphs.
    - Use TikZ commands (\`\\draw\`, \`\\node\`, etc.) for geometric diagrams (circles, triangles), flowcharts, and custom annotations.
    - COMBINING THEM: For annotated graphs, draw TikZ elements INSIDE the \`axis\` environment. Use axis coordinates (e.g., \`(axis cs:2,4)\`) to ensure callouts and arrows stay perfectly aligned with the plot data.
+   - COLLISION AVOIDANCE: Ensure labels NEVER overlap with lines, points, or axes. Use positioning anchors (e.g., \`above\`, \`below left\`, \`pos=0.5\`) and small offsets (e.g., \`xshift=2pt\`) to keep text clear.
 3. PROFESSIONAL STYLING:
    - Typography: Use $...$ for all mathematical text.
    - Colors: Use academic colors (black, blue!70!black, red!70!black).

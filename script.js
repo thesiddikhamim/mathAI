@@ -3376,7 +3376,7 @@ ${safeTikz}
     const svgText = await svgResp.text();
 
     const visualDiv = document.createElement("div");
-    visualDiv.style.cssText = "margin-top: 1.5rem; text-align: center; overflow-x: auto; background: transparent;";
+    visualDiv.style.cssText = "margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: auto; background: transparent; width: 100%;";
     
     visualDiv.innerHTML = svgText;
     
@@ -3385,6 +3385,8 @@ ${safeTikz}
     if(svgEl) {
        svgEl.style.maxWidth = "100%";
        svgEl.style.height = "auto";
+       svgEl.style.display = "block";
+       svgEl.style.margin = "0 auto";
     }
 
     visContainer.innerHTML = ""; // Clear loading state

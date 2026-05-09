@@ -106,6 +106,15 @@ function init() {
     });
   }
 
+  if (el.visEngineTikz && el.visEngineMatplotlib) {
+    el.visEngineTikz.addEventListener("change", (e) => {
+      if (e.target.checked) state.visEngine = "tikz";
+    });
+    el.visEngineMatplotlib.addEventListener("change", (e) => {
+      if (e.target.checked) state.visEngine = "matplotlib";
+    });
+  }
+
   makeEyeToggle(el.toggleKeyVis, el.apiKeyInput);
   makeEyeToggle(el.toggleGroqKeyVis, el.groqApiKeyInput);
   makeEyeToggle(el.toggleMistralKeyVis, el.mistralApiKeyInput);
@@ -138,6 +147,7 @@ function init() {
 
     state.enableVisualization = el.enableVisualization ? el.enableVisualization.checked : false;
     localStorage.setItem("mathai-enable-vis", state.enableVisualization);
+    localStorage.setItem("mathai-vis-engine", state.visEngine);
     localStorage.setItem("mathai-vis-mode", state.visMode);
     
     if (state.visModelConfig) {

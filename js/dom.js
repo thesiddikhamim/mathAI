@@ -17,6 +17,8 @@ export const el = {
   modelsView: $("modelsView"),
   visualizationView: $("visualizationView"),
   enableVisualization: $("enableVisualization"),
+  visEngineTikz: $("visEngineTikz"),
+  visEngineMatplotlib: $("visEngineMatplotlib"),
   visModelsWrapper: $("visModelsWrapper"),
   visModelsContainer: $("visModelsContainer"),
   visEnabledModelsContainer: $("visEnabledModelsContainer"),

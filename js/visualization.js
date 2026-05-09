@@ -172,7 +172,7 @@ Rules for the Plan:
 1. DESIGN ONLY: Describe exactly what to visualize (e.g., "A 3D surface plot of the function...", "A geometric diagram showing the tangent line...", "A coordinate graph with an area shaded...").
 2. TYPE SELECTION: Explicitly state the visualization type (2D Graph, 3D Surface, Geometry Diagram, or Flowchart).
 3. PLACEMENT: Describe where labels, points, and annotations should go for maximum clarity.
-4. NO CODE: Do NOT write any TikZ or PGFPlots code. Focus on the visual strategy.`;
+4. NO CODE: Do NOT write any code. Focus on the visual strategy.`;
 
         updateVisLoadingUI(`Designing visualization plan via ${planModel}...`);
         
@@ -192,13 +192,13 @@ Rules for the Plan:
           }
         }
 
-        // Use the plan if one exists, otherwise fall back to raw solution
         const effectiveText = currentPlanText || aiText;
 
-        // Generate TikZ from the plan (or raw content)
-        updateVisLoadingUI(`Writing TikZ/PGFPlots code via ${visModel}...`);
+        if (state.visEngine === "tikz") {
+          // --- TikZ / Kroki Logic ---
+          updateVisLoadingUI(`Writing TikZ/PGFPlots code via ${visModel}...`);
 
-        const coderPrompt = `You are an expert LaTeX TikZ and PGFPlots visualization coder.
+          const coderPrompt = `You are an expert LaTeX TikZ and PGFPlots visualization coder.
 I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. 
 Your task is to implement this visualization exactly using TikZ and PGFPlots.
 
@@ -210,79 +210,67 @@ Rules for University-Level Textbook Aesthetics:
 2. TOOL SELECTION:
    - Use PGFPlots (\`\\begin{axis}...\`) for any function plots, 3D surfaces, data visualization, or coordinate-based graphs.
    - Use TikZ commands (\`\\draw\`, \`\\node\`, etc.) for geometric diagrams (circles, triangles), flowcharts, and custom annotations.
-   - COMBINING THEM: For annotated graphs, draw TikZ elements INSIDE the \`axis\` environment. Use axis coordinates (e.g., \`(axis cs:2,4)\`) to ensure callouts and arrows stay perfectly aligned with the plot data.
-   - COLLISION AVOIDANCE: Ensure labels NEVER overlap with lines, points, or axes. Use positioning anchors (e.g., \`above\`, \`below left\`, \`pos=0.5\`) and small offsets (e.g., \`xshift=2pt\`) to keep text clear.
 3. PROFESSIONAL STYLING:
    - Typography: Use $...$ for all mathematical text.
    - Colors: Use academic colors (black, blue!70!black, red!70!black).
-   - Line Weights: Use \`thick\` for main curves/shapes and \`thin\` for grids/axes.
 4. RELIABILITY:
    - Semicolons: Every TikZ, PGFPlots command MUST end with a semicolon (;).
-   - Domains: Ensure PGFPlots domains don't cause math errors (e.g., negative values in sqrt).
-   - Driver Compatibility: NEVER use \`shader=interp\`. It is not supported by our SVG renderer. Use \`shader=flat\`, \`shader=faceted\`, or standard coloring instead.
-   - No External Files: NEVER use \`gnuplot\` or any contouring/plotting features that require external files (e.g., \`contour gnuplot\`). These are not supported by the renderer. Use native PGFPlots surfaces or TikZ paths instead.
-   - Math in Options: NEVER place raw math expressions (like \`$x_2$\`) directly inside \`[...]\` options. Use proper keys like \`node contents={...}\`, \`label={...}\`, or \`pin={...}\`. Always wrap labels containing math or complex characters in curly braces \`{...}\` (e.g., \`label={[$x_2$]}\`).
-   - Preamble: Assume \\usepackage{pgfplots} and \\pgfplotsset{compat=1.18} are already in the preamble.`;
+   - Driver Compatibility: NEVER use \`shader=interp\`. It is not supported.
+   - No External Files: NEVER use \`gnuplot\`.`;
 
-      let visCodeText = "";
-      if (visProvider === "gemini") {
-        const chatHist = [{ role: "user", parts: [{ text: coderPrompt }] }];
-        visCodeText = await callGeminiChat(chatHist, providerKey, visModel, noop);
-      } else if (visProvider === "groq") {
-        visCodeText = await callGroqFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
-      } else if (visProvider === "mistral") {
-        visCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
-      } else if (visProvider === "ollama") {
-        visCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
-      }
-      
-      // Extract TikZ code
-      let tikzCode = "";
-      
-      // Always prefer explicit begin/end environment to strip preamble if AI added one
-      const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
-      const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
-      
-      if (beginIdx !== -1) {
-          if (endIdx !== -1 && endIdx > beginIdx) {
-              tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
-          } else {
-              // Auto-close if missing end
-              tikzCode = visCodeText.substring(beginIdx) + "\n\\end{tikzpicture}";
+          let visCodeText = "";
+          if (visProvider === "gemini") {
+            const chatHist = [{ role: "user", parts: [{ text: coderPrompt }] }];
+            visCodeText = await callGeminiChat(chatHist, providerKey, visModel, noop);
+          } else if (visProvider === "groq") {
+            visCodeText = await callGroqFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          } else if (visProvider === "mistral") {
+            visCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          } else if (visProvider === "ollama") {
+            visCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
           }
-      } else {
-          const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
-          const tikzMatch = tikzRegex.exec(visCodeText);
-          if (tikzMatch && tikzMatch[1].trim().length > 0) {
-            tikzCode = tikzMatch[1].trim();
-        } else {
-          tikzCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
-        }
-    }
+          
+          let tikzCode = "";
+          const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
+          const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
+          
+          if (beginIdx !== -1) {
+              if (endIdx !== -1 && endIdx > beginIdx) {
+                  tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
+              } else {
+                  tikzCode = visCodeText.substring(beginIdx) + "\n\\end{tikzpicture}";
+              }
+          } else {
+              const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
+              const tikzMatch = tikzRegex.exec(visCodeText);
+              if (tikzMatch && tikzMatch[1].trim().length > 0) {
+                tikzCode = tikzMatch[1].trim();
+            } else {
+              tikzCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
+            }
+          }
 
-    // Secondary safety: auto-close unclosed axis environment
-    if (tikzCode.includes("\\begin{axis}") && !tikzCode.includes("\\end{axis}")) {
-        tikzCode = tikzCode.replace("\\end{tikzpicture}", "\\end{axis}\n\\end{tikzpicture}");
-    }
+          if (tikzCode.includes("\\begin{axis}") && !tikzCode.includes("\\end{axis}")) {
+              tikzCode = tikzCode.replace("\\end{tikzpicture}", "\\end{axis}\n\\end{tikzpicture}");
+          }
 
-    if (!tikzCode || !tikzCode.includes("\\begin{tikzpicture}")) {
-       throw new Error("The AI model failed to produce valid TikZ code. Please try again.");
-    }
+          if (!tikzCode || !tikzCode.includes("\\begin{tikzpicture}")) {
+             throw new Error("The AI model failed to produce valid TikZ code.");
+          }
 
-    updateVisLoadingUI("Rendering TikZ/PGFPlots via Web API...");
-    
-    // Robustly strip common LaTeX wrappers if the AI included them
-    let safeTikz = tikzCode
-      .replace(/\\documentclass\[.*?\]\{.*?\}/g, '')
-      .replace(/\\documentclass\{.*?\}/g, '')
-      .replace(/\\usepackage\[.*?\]\{.*?\}/g, '')
-      .replace(/\\usepackage\{.*?\}/g, '')
-      .replace(/\\begin\{document\}/g, '')
-      .replace(/\\end\{document\}/g, '')
-      .replace(/\\pgfplotsset\{compat=.*?\}/g, '')
-      .trim();
+          updateVisLoadingUI("Rendering TikZ/PGFPlots via Web API...");
+          
+          let safeTikz = tikzCode
+            .replace(/\\documentclass\[.*?\]\{.*?\}/g, '')
+            .replace(/\\documentclass\{.*?\}/g, '')
+            .replace(/\\usepackage\[.*?\]\{.*?\}/g, '')
+            .replace(/\\usepackage\{.*?\}/g, '')
+            .replace(/\\begin\{document\}/g, '')
+            .replace(/\\end\{document\}/g, '')
+            .replace(/\\pgfplotsset\{compat=.*?\}/g, '')
+            .trim();
 
-    const printCode = `\\documentclass[tikz,border=2pt]{standalone}
+          const printCode = `\\documentclass[tikz,border=2pt]{standalone}
 \\usepackage{amsmath}
 \\usepackage{amssymb}
 \\usepackage{xcolor}
@@ -293,148 +281,133 @@ Rules for University-Level Textbook Aesthetics:
 ${safeTikz}
 \\end{document}`;
 
-    let svgResp;
-    let usedProxy = true;
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
+          let svgResp;
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 45000);
 
-    try {
-      console.log("Attempting to render TikZ via local proxy...");
-      svgResp = await fetch("/api/kroki", {
-        method: "POST",
-        headers: { "Content-Type": "text/plain" },
-        body: printCode,
-        signal: controller.signal
-      });
-      
-      if (!svgResp.ok) {
-        console.warn(`Proxy returned status ${svgResp.status}. Falling back to direct call.`);
-        throw new Error(`Proxy status ${svgResp.status}`);
-      }
-    } catch (err) {
-      usedProxy = false;
-      const isTimeout = err.name === 'AbortError';
-      console.warn(isTimeout ? "Proxy request timed out." : "Local proxy failed or unavailable.", err);
-      
-      try {
-        const directController = new AbortController();
-        const directTimeoutId = setTimeout(() => directController.abort(), 45000);
-        
-        svgResp = await fetch("https://kroki.io/tikz/svg", {
-          method: "POST",
-          headers: { "Content-Type": "text/plain" },
-          body: printCode,
-          signal: directController.signal
-        });
-        clearTimeout(directTimeoutId);
-      } catch (directErr) {
-        console.error("Direct call to kroki.io also failed:", directErr);
-        const msg = directErr.name === 'AbortError' ? "Request timed out (Kroki might be slow or code is too complex)." : directErr.message || "Network error";
-        throw new Error(`Rendering failed: ${msg}. Check your connection or try again.`);
-      }
-    } finally {
-      clearTimeout(timeoutId);
-    }
+          try {
+            svgResp = await fetch("/api/kroki", {
+              method: "POST",
+              headers: { "Content-Type": "text/plain" },
+              body: printCode,
+              signal: controller.signal
+            });
+            if (!svgResp.ok) throw new Error(`Proxy returned status ${svgResp.status}`);
+          } catch (err) {
+            svgResp = await fetch("https://kroki.io/tikz/svg", {
+              method: "POST",
+              headers: { "Content-Type": "text/plain" },
+              body: printCode,
+              signal: controller.signal
+            });
+          } finally {
+            clearTimeout(timeoutId);
+          }
 
-    if (!svgResp.ok) {
-      const errText = await svgResp.text().catch(() => "Could not read error body");
-      console.error("Kroki Error Response:", errText);
-      const cleanErr = errText.split("\n").slice(0, 5).join(" ").replace(/</g, "&lt;");
-      throw new Error(`TikZ compilation error (${usedProxy ? "proxy" : "direct"}): ` + cleanErr);
-    }
-    
-    const svgText = await svgResp.text();
+          if (!svgResp.ok) throw new Error("TikZ compilation error");
+          const svgText = await svgResp.text();
 
-    const visualDiv = document.createElement("div");
-    visualDiv.style.cssText = "margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: auto; background: transparent; width: 100%;";
-    
-    visualDiv.innerHTML = svgText;
-    
-    // adjust SVG max size so it doesn't break chat layout
-    const svgEl = visualDiv.querySelector("svg");
-    if(svgEl) {
-       svgEl.style.maxWidth = "100%";
-       svgEl.style.height = "auto";
-       svgEl.style.display = "block";
-       svgEl.style.margin = "0 auto";
-    }
+          const visualDiv = document.createElement("div");
+          visualDiv.style.cssText = "margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: auto; width: 100%;";
+          visualDiv.innerHTML = svgText;
+          const svgEl = visualDiv.querySelector("svg");
+          if(svgEl) {
+             svgEl.style.maxWidth = "100%";
+             svgEl.style.height = "auto";
+             svgEl.style.display = "block";
+             svgEl.style.margin = "0 auto";
+          }
+          visContainer.innerHTML = "";
+          visContainer.appendChild(visualDiv);
 
-    visContainer.innerHTML = ""; // Clear loading state
-    visContainer.appendChild(visualDiv);
+        } else {
+          // --- Matplotlib / Pyodide Logic ---
+          updateVisLoadingUI(`Writing Matplotlib Python code via ${visModel}...`);
 
-    // Add Regenerate button below visualization
-    const regenWrapper = document.createElement("div");
-    regenWrapper.style.cssText = "margin-top: 12px; text-align: center;";
-    
-    const regenBtn = document.createElement("button");
-    regenBtn.className = "btn btn-outline btn-sm";
-    regenBtn.title = "Regenerate only this visualization image";
-    regenBtn.style.cssText = "font-size: 12px; padding: 6px 12px; border-radius: var(--radius-md); opacity: 0.85;";
-    regenBtn.innerHTML = `
-      <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px;">
-        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-        <path d="M3 3v5h5"></path>
-      </svg>
-      Regenerate Image
-    `;
-    regenBtn.addEventListener("click", () => {
-      startVisualization();
-    });
-    
-    regenWrapper.appendChild(regenBtn);
-    visContainer.appendChild(regenWrapper);
+          const coderPrompt = `You are an expert Python Matplotlib mathematical visualization coder.
+I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. 
+Your task is to implement this visualization exactly using Matplotlib and Numpy.
 
-    scrollToBottom(true);
-    updateCache();
+Source Material:
+${effectiveText}
+
+Rules for Professional Math Diagrams:
+1. STRICT FORMATTING: ONLY output valid Python code within a \`\`\`python ... \`\`\` block.
+2. CANVAS SETUP: 
+   - MUST save the final figure to 'output.png' using \`plt.savefig('output.png', dpi=150, bbox_inches='tight')\`.
+   - Use a clean white background.
+3. SHAPES & GEOMETRY:
+   - Use \`matplotlib.patches\` (Circle, Rectangle, Polygon, Arc) for 2D geometric diagrams.
+   - For 3D visualizations, use \`from mpl_toolkits.mplot3d import Axes3D\` and \`ax = fig.add_subplot(111, projection='3d')\`.
+   - Example: \`rect = patches.Rectangle((x,y), width, height)\`, then \`ax.add_patch(rect)\`.
+   - Use \`plt.plot()\` for lines and functions.
+4. TYPOGRAPHY:
+   - Use LaTeX for all labels and text, e.g., \`plt.title(r'$\\int f(x) dx$')\`.
+   - Ensure labels don't overlap. Use arrows or offsets if needed.
+5. NO GUI: Do NOT use \`plt.show()\`. Use \`plt.savefig('output.png')\`.`;
+
+          let pyCodeText = "";
+          if (visProvider === "gemini") {
+            pyCodeText = await callGeminiChat([{ role: "user", parts: [{ text: coderPrompt }] }], providerKey, visModel, noop);
+          } else if (visProvider === "groq") {
+            pyCodeText = await callGroqFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          } else if (visProvider === "mistral") {
+            pyCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          } else if (visProvider === "ollama") {
+            pyCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          }
+
+          let pythonCode = "";
+          const pyRegex = /\`\`\`(?:python)?\n([\s\S]*?)\`\`\`/;
+          const pyMatch = pyRegex.exec(pyCodeText);
+          pythonCode = pyMatch ? pyMatch[1].trim() : pyCodeText.replace(/\`\`\`/g, "").trim();
+
+          if (!pythonCode || !pythonCode.includes("plt")) {
+            throw new Error("The AI model failed to produce valid Matplotlib code.");
+          }
+
+          updateVisLoadingUI("Rendering diagram locally via Python (WebAssembly)...");
+          const imgData = await runPythonInWorker(pythonCode);
+          
+          const blob = new Blob([imgData], { type: 'image/png' });
+          const url = URL.createObjectURL(blob);
+          
+          const visualDiv = document.createElement("div");
+          visualDiv.style.cssText = "margin-top: 1.5rem; text-align: center;";
+          visualDiv.innerHTML = `<img src="${url}" style="max-width: 100%; height: auto; border-radius: var(--radius-md); box-shadow: var(--shadow-sm);" />`;
+          
+          visContainer.innerHTML = "";
+          visContainer.appendChild(visualDiv);
+        }
+
+        // Add Regenerate button
+        const regenWrapper = document.createElement("div");
+        regenWrapper.style.cssText = "margin-top: 12px; text-align: center;";
+        const regenBtn = document.createElement("button");
+        regenBtn.className = "btn btn-outline btn-sm";
+        regenBtn.innerHTML = `<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; margin-right: 4px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Regenerate Image`;
+        regenBtn.addEventListener("click", () => startVisualization());
+        regenWrapper.appendChild(regenBtn);
+        visContainer.appendChild(regenWrapper);
+
+        scrollToBottom(true);
+        updateCache();
 
     } catch (err) {
       console.error("Visualization error:", err);
-      let shortErr = err && err.message ? err.message.split("\\n")[0] : "Unknown error";
-      visContainer.innerHTML = `
-        <div style="margin-top: 1.5rem; padding: 0.85rem; border: 1px solid var(--danger); border-radius: var(--radius-md); color: var(--danger); font-size: 13px; background: rgba(239, 68, 68, 0.05); text-align: center;">
-          <div style="font-weight: 500; margin-bottom: 6px;">Visualization generation failed.</div>
-          <div style="opacity: 0.8; font-size: 11.5px; margin-bottom: 12px; word-break: break-all;">${shortErr.replace(/</g, "&lt;")}</div>
-          <button class="btn btn-outline btn-sm" style="border-color: var(--danger); color: var(--danger); font-size: 12px; padding: 6px 12px; border-radius: var(--radius-md);">
-            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 14px; height: 14px; margin-right: 4px;">
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
-              <path d="M3 3v5h5"></path>
-            </svg>
-            Try Again
-          </button>
-        </div>
-      `;
-      const retryBtn = visContainer.querySelector('button');
-      if (retryBtn) {
-        retryBtn.addEventListener('click', () => startVisualization());
-      }
+      visContainer.innerHTML = `<div style="margin-top: 1.5rem; padding: 0.85rem; border: 1px solid var(--danger); border-radius: var(--radius-md); color: var(--danger); font-size: 13px; background: rgba(239, 68, 68, 0.05); text-align: center;"><div style="font-weight: 500; margin-bottom: 6px;">Visualization generation failed.</div><div style="opacity: 0.8; font-size: 11.5px; margin-bottom: 12px; word-break: break-all;">${(err.message || "Unknown error").replace(/</g, "&lt;")}</div><button class="btn btn-outline btn-sm" style="border-color: var(--danger); color: var(--danger); font-size: 12px; padding: 6px 12px; border-radius: var(--radius-md);">Try Again</button></div>`;
+      visContainer.querySelector('button').addEventListener('click', () => startVisualization());
       scrollToBottom(true);
       updateCache();
     }
   };
 
   if (state.visMode === "ask") {
-    visContainer.innerHTML = `
-      <div style="margin-top: 1.5rem; text-align: center;">
-        <button class="btn btn-outline" id="btn-trigger-vis-${Date.now()}" style="padding: 10px 16px; border-radius: var(--radius-md); font-weight: 500;">
-          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;">
-            <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-            <circle cx="8.5" cy="8.5" r="1.5"></circle>
-            <polyline points="21 15 16 10 5 21"></polyline>
-          </svg>
-          Generate Visualization
-        </button>
-      </div>
-    `;
-    const triggerBtn = visContainer.querySelector('button');
-    if (triggerBtn) {
-      triggerBtn.addEventListener('click', () => {
-        startVisualization();
-      });
-    }
+    visContainer.innerHTML = `<div style="margin-top: 1.5rem; text-align: center;"><button class="btn btn-outline" style="padding: 10px 16px; border-radius: var(--radius-md); font-weight: 500;"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Generate Visualization</button></div>`;
+    visContainer.querySelector('button').addEventListener('click', () => startVisualization());
     scrollToBottom(true);
     updateCache();
   } else {
-    // visMode auto
     startVisualization();
   }
 }

@@ -227,6 +227,11 @@ export function openSettings() {
     }
   }
 
+  if (el.visEngineTikz && el.visEngineMatplotlib) {
+    el.visEngineTikz.checked = state.visEngine === "tikz";
+    el.visEngineMatplotlib.checked = state.visEngine === "matplotlib";
+  }
+
   if (el.visModeAsk && el.visModeAuto) {
     el.visModeAsk.checked = state.visMode === "ask";
     el.visModeAuto.checked = state.visMode === "auto";
@@ -270,6 +275,7 @@ export function loadSettings() {
   const sm = localStorage.getItem("mathai-selected-models");
   const activeTabId = localStorage.getItem("mathai-active-tab-id");
   const enableVis = localStorage.getItem("mathai-enable-vis");
+  const visModEngine = localStorage.getItem("mathai-vis-engine");
   const visModMode = localStorage.getItem("mathai-vis-mode");
   const visMod = localStorage.getItem("mathai-vis-model");
   const visEnList = localStorage.getItem("mathai-vis-enabled");
@@ -280,6 +286,7 @@ export function loadSettings() {
   if (ok) state.ollamaApiKey = ok;
   
   if (enableVis !== null) state.enableVisualization = enableVis === "true";
+  if (visModEngine) state.visEngine = visModEngine;
   if (visModMode) state.visMode = visModMode;
   if (visMod) state.visModelConfig = visMod;
 

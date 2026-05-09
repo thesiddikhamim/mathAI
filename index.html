@@ -162,7 +162,7 @@
                     <circle cx="8.5" cy="8.5" r="1.5"/>
                     <polyline points="21 15 16 10 5 21"/>
                   </svg>
-                  <span style="font-weight: 500;">Enable AI Visualization (TikZ)</span>
+                  <span style="font-weight: 500;">Enable AI Visualization</span>
                 </div>
                 <label class="toggle-switch">
                   <input type="checkbox" id="enableVisualization" />
@@ -170,7 +170,7 @@
                 </label>
               </div>
               <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
-                Uses a specialized coding model to seamlessly write and render LaTeX TikZ diagrams locally in your browser via WebAssembly for textbook-quality shapes and geometry setup.
+                Uses a specialized coding model to seamlessly write and render diagrams locally in your browser. Supports TikZ (Textbook quality) and Matplotlib (Highly reliable).
               </p>
             </div>
             
@@ -179,7 +179,25 @@
               
               <div class="settings-section">
                 <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
-                  1. Visualization Mode
+                  1. Visualization Engine
+                </label>
+                <div class="models-grid">
+                  <label class="model-checkbox-label">
+                    <input type="radio" name="visEngineRadio" id="visEngineTikz" class="model-radio" value="tikz">
+                    TikZ (Kroki API)
+                  </label>
+                  <label class="model-checkbox-label">
+                    <input type="radio" name="visEngineRadio" id="visEngineMatplotlib" class="model-radio" value="matplotlib">
+                    Matplotlib (Local/Offline)
+                  </label>
+                </div>
+              </div>
+
+              <div class="settings-divider" style="margin: 20px 0;"></div>
+
+              <div class="settings-section">
+                <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
+                  2. Visualization Mode
                 </label>
                 <div class="models-grid">
                   <label class="model-checkbox-label">

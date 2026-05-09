@@ -243,8 +243,13 @@ Rules for University-Level Textbook Aesthetics:
       const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
       const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
       
-      if (beginIdx !== -1 && endIdx !== -1) {
-          tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
+      if (beginIdx !== -1) {
+          if (endIdx !== -1 && endIdx > beginIdx) {
+              tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
+          } else {
+              // Auto-close if missing end
+              tikzCode = visCodeText.substring(beginIdx) + "\n\\end{tikzpicture}";
+          }
       } else {
           const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
           const tikzMatch = tikzRegex.exec(visCodeText);
@@ -253,6 +258,11 @@ Rules for University-Level Textbook Aesthetics:
         } else {
           tikzCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
         }
+    }
+
+    // Secondary safety: auto-close unclosed axis environment
+    if (tikzCode.includes("\\begin{axis}") && !tikzCode.includes("\\end{axis}")) {
+        tikzCode = tikzCode.replace("\\end{tikzpicture}", "\\end{axis}\n\\end{tikzpicture}");
     }
 
     if (!tikzCode || !tikzCode.includes("\\begin{tikzpicture}")) {
@@ -286,7 +296,7 @@ ${safeTikz}
     let svgResp;
     let usedProxy = true;
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s timeout
 
     try {
       console.log("Attempting to render TikZ via local proxy...");
@@ -308,7 +318,7 @@ ${safeTikz}
       
       try {
         const directController = new AbortController();
-        const directTimeoutId = setTimeout(() => directController.abort(), 20000);
+        const directTimeoutId = setTimeout(() => directController.abort(), 45000);
         
         svgResp = await fetch("https://kroki.io/tikz/svg", {
           method: "POST",

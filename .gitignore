@@ -1,0 +1,24 @@
+# OS X
+.DS_Store
+
+# Vercel
+.vercel
+
+# Environment Variables
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor
+.vscode/*
+!.vscode/settings.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo

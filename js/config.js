@@ -3,6 +3,7 @@ export const RENDER_THROTTLE_MS = 100;
 
 export const AVAILABLE_MODELS = {
   gemini: [
+    { id: "gemini-3.5-flash", label: "Gemini 3.5 Flash" },
     { id: "gemini-3.1-pro-preview", label: "Gemini 3.1 Pro (Preview)" },
     { id: "gemini-3-flash-preview", label: "Gemini 3 Flash" },
     { id: "gemini-3.1-flash-lite-preview", label: "Gemini 3.1 Flash-Lite" },

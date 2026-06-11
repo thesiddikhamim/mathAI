@@ -231,31 +231,43 @@ Rules for University-Level Textbook Aesthetics:
           }
           
           let tikzCode = "";
-          const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
-          const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
           
-          if (beginIdx !== -1) {
-              if (endIdx !== -1 && endIdx > beginIdx) {
-                  tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
-              } else {
-                  tikzCode = visCodeText.substring(beginIdx) + "\n\\end{tikzpicture}";
-              }
+          // First, try to extract from code blocks
+          const tikzRegex = /```(?:latex|tikz|tex)?\s*\n?([\s\S]*?)```/i;
+          const tikzMatch = tikzRegex.exec(visCodeText);
+          
+          if (tikzMatch && tikzMatch[1].trim().length > 0) {
+            tikzCode = tikzMatch[1].trim();
           } else {
-              const tikzRegex = /\`\`\`(?:latex|tikz)?\n([\s\S]*?)\`\`\`/;
-              const tikzMatch = tikzRegex.exec(visCodeText);
-              if (tikzMatch && tikzMatch[1].trim().length > 0) {
-                tikzCode = tikzMatch[1].trim();
+            // If no code blocks, try to find tikzpicture directly
+            const beginIdx = visCodeText.indexOf("\\begin{tikzpicture}");
+            const endIdx = visCodeText.lastIndexOf("\\end{tikzpicture}");
+            
+            if (beginIdx !== -1) {
+              if (endIdx !== -1 && endIdx > beginIdx) {
+                tikzCode = visCodeText.substring(beginIdx, endIdx + "\\end{tikzpicture}".length);
+              } else {
+                tikzCode = visCodeText.substring(beginIdx) + "\n\\end{tikzpicture}";
+              }
             } else {
-              tikzCode = visCodeText.replace(/\`\`\`/g, "").trim(); 
+              // Last resort: remove backticks and use as-is
+              tikzCode = visCodeText.replace(/```/g, "").trim();
             }
           }
-
+          
+          // Clean up common issues
           if (tikzCode.includes("\\begin{axis}") && !tikzCode.includes("\\end{axis}")) {
-              tikzCode = tikzCode.replace("\\end{tikzpicture}", "\\end{axis}\n\\end{tikzpicture}");
+            tikzCode = tikzCode.replace("\\end{tikzpicture}", "\\end{axis}\n\\end{tikzpicture}");
+          }
+          
+          // If tikzCode doesn't contain \begin{tikzpicture}, but contains \begin{axis}, wrap it
+          if (!tikzCode.includes("\\begin{tikzpicture}") && tikzCode.includes("\\begin{axis}")) {
+            tikzCode = "\\begin{tikzpicture}\n" + tikzCode + "\n\\end{tikzpicture}";
           }
 
-          if (!tikzCode || !tikzCode.includes("\\begin{tikzpicture}")) {
-             throw new Error("The AI model failed to produce valid TikZ code.");
+          if (!tikzCode || (!tikzCode.includes("\\begin{tikzpicture}") && !tikzCode.includes("\\begin{axis}"))) {
+            console.error("Failed to extract TikZ code from AI response:", visCodeText.substring(0, 500));
+            throw new Error("The AI model failed to produce valid TikZ code. Please try regenerating.");
           }
 
           updateVisLoadingUI("Rendering TikZ/PGFPlots via Web API...");
@@ -320,6 +332,105 @@ ${safeTikz}
           visContainer.innerHTML = "";
           visContainer.appendChild(visualDiv);
 
+        } else if (state.visEngine === "svg") {
+          // --- Direct SVG / AI Generated Logic ---
+          updateVisLoadingUI(`Generating SVG code via ${visModel}...`);
+
+          const coderPrompt = `You are an expert SVG visualization coder for mathematical diagrams.
+I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. 
+Your task is to implement this visualization directly as SVG code.
+
+Source Material:
+${effectiveText}
+
+Rules for Professional Math Diagrams:
+1. STRICT FORMATTING: ONLY output valid SVG code within a \`\`\`svg ... \`\`\` block. MUST start with <svg> and end with </svg>.
+2. SVG STRUCTURE:
+   - Set appropriate viewBox and dimensions (e.g., viewBox="0 0 800 600" width="800" height="600")
+   - Use a clean white or transparent background
+   - Include xmlns="http://www.w3.org/2000/svg" in the svg tag
+3. MATHEMATICAL ELEMENTS:
+   - Use <path> for curves and complex shapes
+   - Use <line>, <circle>, <rect>, <polygon> for basic shapes
+   - Use <text> for labels with mathematical notation (use Unicode math symbols or simple LaTeX-like text)
+   - Add <marker> elements for arrows if needed
+4. STYLING:
+   - Colors: Use academic colors (black, blue!70!black, red!70!black).
+   - Set appropriate stroke-width, fill, and opacity
+   - Add clear labels and annotations
+5. QUALITY:
+   - Ensure all coordinates are precise
+   - Make the diagram scalable and clean
+   - Use consistent styling throughout
+   - Add comments in SVG if helpful for understanding structure
+
+Example structure:
+\`\`\`svg
+<svg viewBox="0 0 800 600" width="800" height="600" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="800" height="600" fill="white"/>
+  
+  <!-- Grid or axes if needed -->
+  <line x1="50" y1="300" x2="750" y2="300" stroke="black" stroke-width="2"/>
+  
+  <!-- Your visualization elements -->
+  <circle cx="400" cy="300" r="50" fill="none" stroke="#4169E1" stroke-width="2"/>
+  
+  <!-- Labels -->
+  <text x="400" y="280" text-anchor="middle" font-size="16">Label</text>
+</svg>
+\`\`\``;
+
+          let svgCodeText = "";
+          if (visProvider === "gemini") {
+            svgCodeText = await callGeminiChat([{ role: "user", parts: [{ text: coderPrompt }] }], providerKey, visModel, noop);
+          } else if (visProvider === "groq") {
+            svgCodeText = await callGroqFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          } else if (visProvider === "mistral") {
+            svgCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          } else if (visProvider === "ollama") {
+            svgCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          }
+
+          let svgCode = "";
+          const svgRegex = /```(?:svg|xml|html)?\s*\n?([\s\S]*?)```/i;
+          const svgMatch = svgRegex.exec(svgCodeText);
+          
+          if (svgMatch && svgMatch[1].trim().length > 0) {
+            svgCode = svgMatch[1].trim();
+          } else {
+            // Try to extract SVG directly
+            const svgStartIdx = svgCodeText.indexOf("<svg");
+            const svgEndIdx = svgCodeText.lastIndexOf("</svg>");
+            
+            if (svgStartIdx !== -1 && svgEndIdx !== -1 && svgEndIdx > svgStartIdx) {
+              svgCode = svgCodeText.substring(svgStartIdx, svgEndIdx + "</svg>".length);
+            } else {
+              // Last resort: remove backticks
+              svgCode = svgCodeText.replace(/```/g, "").trim();
+            }
+          }
+
+          if (!svgCode || !svgCode.includes("<svg")) {
+            console.error("Failed to extract SVG code from AI response:", svgCodeText.substring(0, 500));
+            throw new Error("The AI model failed to produce valid SVG code. Please try regenerating.");
+          }
+
+          updateVisLoadingUI("Rendering SVG...");
+
+          const visualDiv = document.createElement("div");
+          visualDiv.style.cssText = "margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: auto; width: 100%;";
+          visualDiv.innerHTML = svgCode;
+          const svgEl = visualDiv.querySelector("svg");
+          if(svgEl) {
+             svgEl.style.maxWidth = "100%";
+             svgEl.style.height = "auto";
+             svgEl.style.display = "block";
+             svgEl.style.margin = "0 auto";
+          }
+          visContainer.innerHTML = "";
+          visContainer.appendChild(visualDiv);
+
         } else {
           // --- Matplotlib / Pyodide Logic ---
           updateVisLoadingUI(`Writing Matplotlib Python code via ${visModel}...`);
@@ -358,12 +469,13 @@ Rules for Professional Math Diagrams:
           }
 
           let pythonCode = "";
-          const pyRegex = /\`\`\`(?:python)?\n([\s\S]*?)\`\`\`/;
+          const pyRegex = /```(?:python|py)?\s*\n?([\s\S]*?)```/i;
           const pyMatch = pyRegex.exec(pyCodeText);
-          pythonCode = pyMatch ? pyMatch[1].trim() : pyCodeText.replace(/\`\`\`/g, "").trim();
+          pythonCode = pyMatch ? pyMatch[1].trim() : pyCodeText.replace(/```/g, "").trim();
 
-          if (!pythonCode || !pythonCode.includes("plt")) {
-            throw new Error("The AI model failed to produce valid Matplotlib code.");
+          if (!pythonCode || (!pythonCode.includes("plt") && !pythonCode.includes("matplotlib"))) {
+            console.error("Failed to extract Python code from AI response:", pyCodeText.substring(0, 500));
+            throw new Error("The AI model failed to produce valid Matplotlib code. Please try regenerating.");
           }
 
           updateVisLoadingUI("Rendering diagram locally via Python (WebAssembly)...");

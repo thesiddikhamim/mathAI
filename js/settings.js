@@ -227,9 +227,10 @@ export function openSettings() {
     }
   }
 
-  if (el.visEngineTikz && el.visEngineMatplotlib) {
+  if (el.visEngineTikz && el.visEngineMatplotlib && el.visEngineSvg) {
     el.visEngineTikz.checked = state.visEngine === "tikz";
     el.visEngineMatplotlib.checked = state.visEngine === "matplotlib";
+    el.visEngineSvg.checked = state.visEngine === "svg";
   }
 
   if (el.visModeAsk && el.visModeAuto) {

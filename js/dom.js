@@ -19,6 +19,7 @@ export const el = {
   enableVisualization: $("enableVisualization"),
   visEngineTikz: $("visEngineTikz"),
   visEngineMatplotlib: $("visEngineMatplotlib"),
+  visEngineSvg: $("visEngineSvg"),
   visModelsWrapper: $("visModelsWrapper"),
   visModelsContainer: $("visModelsContainer"),
   visEnabledModelsContainer: $("visEnabledModelsContainer"),

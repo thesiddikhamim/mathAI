@@ -106,12 +106,15 @@ function init() {
     });
   }
 
-  if (el.visEngineTikz && el.visEngineMatplotlib) {
+  if (el.visEngineTikz && el.visEngineMatplotlib && el.visEngineSvg) {
     el.visEngineTikz.addEventListener("change", (e) => {
       if (e.target.checked) state.visEngine = "tikz";
     });
     el.visEngineMatplotlib.addEventListener("change", (e) => {
       if (e.target.checked) state.visEngine = "matplotlib";
+    });
+    el.visEngineSvg.addEventListener("change", (e) => {
+      if (e.target.checked) state.visEngine = "svg";
     });
   }
 

@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   // Actually, Vercel Hobby is strictly 10s. Pro is 60s.
   // We'll add an AbortController to the fetch itself.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12000); // slightly over 10s to let Vercel handle it if needed
+  const timeoutId = setTimeout(() => controller.abort(), 1000); // slightly over 10s to let Vercel handle it if needed
 
   try {
     const krokiResponse = await fetch('https://kroki.io/tikz/svg', {

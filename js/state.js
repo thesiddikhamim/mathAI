@@ -25,7 +25,8 @@ export const state = {
     groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
   },
   enableVisualization: false,
-  visEngine: "tikz", // "tikz" or "matplotlib" or "svg"
+  // "matplotlib" (local, reliable, native 2D + 3D) | "tikz" (Kroki) | "svg" (AI)
+  visEngine: "matplotlib",
   visMode: "ask", // "ask" or "auto"
   visModelConfig: "ollama:qwen3.5:cloud",
   enableVisPlanner: false,

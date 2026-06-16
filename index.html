@@ -34,6 +34,14 @@
 
     <!-- PDF.js -->
     <script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+    <script>
+      // Configure the PDF.js worker (otherwise it falls back to slow main-thread
+      // "fake worker" mode and logs warnings).
+      if (window.pdfjsLib) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc =
+          "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      }
+    </script>
 
     <!-- Marked.js (Markdown) -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
@@ -170,7 +178,7 @@
                 </label>
               </div>
               <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
-                Uses a specialized coding model to seamlessly write and render diagrams locally in your browser. Supports TikZ (Textbook quality) and Matplotlib (Highly reliable).
+                A coding model writes and renders publication-quality 2D &amp; 3D figures for each solution. Choose Matplotlib (local &amp; reliable, native 3D), TikZ/PGFPlots (LaTeX textbook look), or direct SVG.
               </p>
             </div>
             
@@ -183,16 +191,16 @@
                 </label>
                 <div class="models-grid">
                   <label class="model-checkbox-label">
-                    <input type="radio" name="visEngineRadio" id="visEngineTikz" class="model-radio" value="tikz">
-                    TikZ (Kroki API)
+                    <input type="radio" name="visEngineRadio" id="visEngineMatplotlib" class="model-radio" value="matplotlib">
+                    Matplotlib (Local · 2D/3D)
                   </label>
                   <label class="model-checkbox-label">
-                    <input type="radio" name="visEngineRadio" id="visEngineMatplotlib" class="model-radio" value="matplotlib">
-                    Matplotlib (Local)
+                    <input type="radio" name="visEngineRadio" id="visEngineTikz" class="model-radio" value="tikz">
+                    TikZ / PGFPlots
                   </label>
                   <label class="model-checkbox-label">
                     <input type="radio" name="visEngineRadio" id="visEngineSvg" class="model-radio" value="svg">
-                    Direct SVG (AI Gen)
+                    Direct SVG
                   </label>
                 </div>
               </div>
@@ -220,7 +228,7 @@
               <div class="settings-section">
                 <div class="settings-provider-header" style="justify-content: space-between; padding: 0; border: none; margin-bottom: 12px;">
                   <label class="settings-label" style="display: block; margin: 0; font-weight: 600; color: var(--accent); text-transform: uppercase;">
-                    2. Visualization Planner Agent
+                    3. Visualization Planner Agent
                   </label>
                   <label class="toggle-switch">
                     <input type="checkbox" id="enableVisPlanner" />
@@ -244,7 +252,7 @@
 
               <div class="settings-section">
                 <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
-                  3. Model for Code Generation
+                  4. Model for Code Generation
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
                   Pick the model that will be used to generate LaTeX TikZ code for visualization.
@@ -258,7 +266,7 @@
 
               <div class="settings-section">
                 <label class="settings-label" style="display: block; margin-bottom: 16px; font-weight: 600; color: var(--accent); text-transform: uppercase;">
-                  4. Enable Visualization for Selected Chat Models
+                  5. Enable Visualization for Selected Chat Models
                 </label>
                 <p style="font-size: 13px; color: var(--text-muted); line-height: 1.5; margin-bottom: 16px;">
                   For which of the chat models you selected in "Model selection" do you want to generate visualizations?

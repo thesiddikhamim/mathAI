@@ -5,6 +5,106 @@ import { callGeminiChat, callGroqFollowUp, callMistralFollowUp, callOllamaFollow
 
 let pyodideWorker = null;
 
+// Token a coder model returns when a problem has nothing worth drawing.
+const NO_VIS_TOKEN = "NO_VISUALIZATION";
+
+// Deterministic, publication-quality Matplotlib style. Prepended to every
+// generated Python snippet so figures look like a textbook regardless of what
+// the model writes. The model is told NOT to override this.
+const MPL_STYLE_PREAMBLE = `# === MathAI professional figure style (auto-injected) ===
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+try:
+    plt.rcParams.update({
+        'figure.figsize': (8, 5.2),
+        'figure.dpi': 120,
+        'savefig.dpi': 200,
+        'savefig.bbox': 'tight',
+        'savefig.pad_inches': 0.25,
+        'figure.facecolor': 'white',
+        'axes.facecolor': 'white',
+        'savefig.facecolor': 'white',
+        'font.family': 'serif',
+        'font.serif': ['DejaVu Serif'],
+        'font.size': 13,
+        'mathtext.fontset': 'cm',
+        'axes.titlesize': 15,
+        'axes.titleweight': 'bold',
+        'axes.titlepad': 12,
+        'axes.labelsize': 13,
+        'axes.labelpad': 6,
+        'axes.linewidth': 1.1,
+        'axes.edgecolor': '#2b2b2b',
+        'axes.grid': True,
+        'axes.axisbelow': True,
+        'grid.color': '#9aa0aa',
+        'grid.linewidth': 0.6,
+        'grid.alpha': 0.35,
+        'grid.linestyle': '--',
+        'xtick.direction': 'in',
+        'ytick.direction': 'in',
+        'xtick.labelsize': 11,
+        'ytick.labelsize': 11,
+        'xtick.major.size': 5,
+        'ytick.major.size': 5,
+        'legend.frameon': True,
+        'legend.framealpha': 0.92,
+        'legend.edgecolor': '#cccccc',
+        'legend.fancybox': False,
+        'legend.fontsize': 11,
+        'lines.linewidth': 2.0,
+        'lines.markersize': 6,
+        'axes.prop_cycle': plt.cycler(color=['#1f4e8c', '#c0392b', '#1e8449', '#b8860b', '#6c3483', '#0e7c86']),
+    })
+except Exception:
+    pass
+# === end style ===
+`;
+
+// Professional defaults applied to every PGFPlots axis. Appended styles, so any
+// option the model sets on a specific axis still wins.
+const PGFPLOTS_STYLE = `\\pgfplotsset{
+  every axis/.append style={
+    axis line style={black!55},
+    tick style={black!55},
+    tick label style={font=\\footnotesize},
+    label style={font=\\small},
+    title style={font=\\bfseries},
+    legend style={draw=black!30, fill=white, font=\\footnotesize, rounded corners=1.5pt},
+    grid=both,
+    grid style={black!12, line width=0.3pt},
+    major grid style={black!22, line width=0.4pt},
+  },
+}`;
+
+// Returns true if the model declined to draw anything for this problem.
+function isNoVisualization(text) {
+  if (!text) return true;
+  const stripped = text.replace(/[`*_#>\s]/g, "").toUpperCase();
+  return stripped.includes(NO_VIS_TOKEN) && stripped.length < NO_VIS_TOKEN.length + 24;
+}
+
+// Wraps rendered output (img or svg node) in a framed, captioned figure so it
+// reads like a textbook plate.
+function buildFigure(innerNode, engineLabel) {
+  const fig = document.createElement("figure");
+  fig.className = "vis-figure";
+
+  const frame = document.createElement("div");
+  frame.className = "vis-figure-frame";
+  frame.appendChild(innerNode);
+  fig.appendChild(frame);
+
+  const cap = document.createElement("figcaption");
+  cap.className = "vis-figure-caption";
+  cap.innerHTML = `<span class="vis-figure-tag">Figure</span> Generated visualization${engineLabel ? ` · ${engineLabel}` : ""}`;
+  fig.appendChild(cap);
+
+  return fig;
+}
+
 export function getPyodideWorker() {
   if (pyodideWorker) return pyodideWorker;
   
@@ -155,6 +255,17 @@ export async function renderVisualization(aiText, wrapper, tabId) {
     updateCache();
   };
 
+  const renderNoVis = () => {
+    visContainer.innerHTML = `
+      <div class="vis-none">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4"></path><circle cx="12" cy="12" r="9"></circle></svg>
+        <span>No diagram is needed for this solution.</span>
+      </div>
+    `;
+    scrollToBottom(true);
+    updateCache();
+  };
+
   let currentPlanText = null;
 
   const startVisualization = async () => {
@@ -162,17 +273,18 @@ export async function renderVisualization(aiText, wrapper, tabId) {
       const noop = () => {};
 
       if (state.enableVisPlanner && !currentPlanText) {
-        const plannerPrompt = `You are an expert mathematical visualization designer. I am providing you with a step-by-step solution to a math problem.
-Your task is to summarize the key points of the solution and design a detailed plan for a visualization.
+        const plannerPrompt = `You are an art director for a mathematics textbook. Given the worked solution below, design the single most illuminating figure for it.
 
-Context:
+Solution:
 ${aiText}
 
-Rules for the Plan:
-1. DESIGN ONLY: Describe exactly what to visualize (e.g., "A 3D surface plot of the function...", "A geometric diagram showing the tangent line...", "A coordinate graph with an area shaded...").
-2. TYPE SELECTION: Explicitly state the visualization type (2D Graph, 3D Surface, Geometry Diagram, or Flowchart).
-3. PLACEMENT: Describe where labels, points, and annotations should go for maximum clarity.
-4. NO CODE: Do NOT write any code. Focus on the visual strategy.`;
+Produce a concise visual brief (no code) covering:
+1. NECESSITY: Decide whether a figure genuinely helps. If the problem is purely arithmetic, algebraic manipulation, or definitional with nothing geometric or graphical to show, reply with exactly "${NO_VIS_TOKEN}" and nothing else.
+2. DIMENSIONALITY: State 2D or 3D, and justify in a few words. Use 3D ONLY when the mathematics is inherently three-dimensional (surface z=f(x,y), solid of revolution, space curve, plane/vectors in R³). Otherwise use 2D.
+3. TYPE: e.g. function graph, shaded region/area, geometric diagram, triangle/circle construction, vector diagram, number line, bar/pie/data chart, 3D surface, parametric curve.
+4. EXACT CONTENT: the precise functions, points, intervals, angles, and values to draw (use the real numbers from the solution), and which key features to mark (intercepts, extrema, intersections, asymptotes, tangent point, shaded area, labelled angles/sides).
+5. ANNOTATIONS: where titles, axis labels (with units), point labels, and the legend should go for maximum clarity without overlap.
+Keep it under ~150 words. Describe the visual strategy only — do NOT write code.`;
 
         updateVisLoadingUI(`Designing visualization plan via ${planModel}...`);
         
@@ -188,6 +300,10 @@ Rules for the Plan:
         }
         
           if (planResp && planResp.trim().length > 0) {
+            if (isNoVisualization(planResp)) {
+              renderNoVis();
+              return;
+            }
             currentPlanText = planResp;
           }
         }
@@ -198,25 +314,35 @@ Rules for the Plan:
           // --- TikZ / Kroki Logic ---
           updateVisLoadingUI(`Writing TikZ/PGFPlots code via ${visModel}...`);
 
-          const coderPrompt = `You are an expert LaTeX TikZ and PGFPlots visualization coder.
-I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. 
-Your task is to implement this visualization exactly using TikZ and PGFPlots.
+          const coderPrompt = `You are a master of LaTeX TikZ and PGFPlots who produces clean, textbook-quality mathematical figures. I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. Implement ONE precise, accurate figure.
 
 Source Material:
 ${effectiveText}
 
-Rules for University-Level Textbook Aesthetics:
-1. STRICT FORMATTING: ONLY output valid TikZ, PGFPlots code within a \`\`\`latex ... \`\`\` block. MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}.
-2. TOOL SELECTION:
-   - Use PGFPlots (\`\\begin{axis}...\`) for any function plots, 3D surfaces, data visualization, or coordinate-based graphs.
-   - Use TikZ commands (\`\\draw\`, \`\\node\`, etc.) for geometric diagrams (circles, triangles), flowcharts, and custom annotations.
-3. PROFESSIONAL STYLING:
-   - Typography: Use $...$ for all mathematical text.
-   - Colors: Use academic colors (black, blue!70!black, red!70!black).
-4. RELIABILITY:
-   - Semicolons: Every TikZ, PGFPlots command MUST end with a semicolon (;).
-   - Driver Compatibility: NEVER use \`shader=interp\`. It is not supported.
-   - No External Files: NEVER use \`gnuplot\`.`;
+OUTPUT FORMAT (strict):
+- Reply with ONE \`\`\`latex ... \`\`\` block and nothing else — no prose. It MUST start with \\begin{tikzpicture} and end with \\end{tikzpicture}.
+- If there is genuinely nothing geometric or graphical worth drawing (pure arithmetic/algebra/definition), reply with exactly: ${NO_VIS_TOKEN}
+
+DIMENSIONALITY — choose deliberately:
+- 2D (default): function graphs, shaded regions/areas, geometry (triangles, circles), vectors in the plane, number lines, data charts.
+- 3D ONLY when inherently three-dimensional (surface z=f(x,y), solid of revolution, space curve, plane/vectors in R³): use a PGFPlots \`axis\` with \`view={...}\`, \`\\addplot3[surf]\`, a \`colormap\`, and label x, y, z.
+
+TOOL SELECTION:
+- PGFPlots (\\begin{axis}...\\end{axis}) for any function plot, data chart, or coordinate graph. Set \`xlabel\`, \`ylabel\`, a short \`title\`, and \`samples=100\` (or more) for smooth curves.
+- TikZ primitives (\\draw, \\node, \\fill, \\filldraw) for geometric constructions, with the \`angles\`/\`quotes\` libraries for marked angles and \`\\node\` labels for points.
+
+ACCURACY:
+- Plot the ACTUAL functions, points, intervals, and values from the source. Mark and label key features: intercepts, extrema, intersections, tangent points, the shaded region, angle measures, side lengths.
+
+PROFESSIONAL STYLING (clean academic defaults are pre-applied to every axis — do not fight them):
+- Use $...$ for ALL mathematical text and labels.
+- Colours: a small, purposeful palette — e.g. blue!65!black, red!70!black, green!55!black; shade regions with low opacity (fill opacity=0.2).
+- Keep line widths ~1pt; place labels so they never overlap the curve.
+
+RELIABILITY:
+- Every TikZ/PGFPlots statement MUST end with a semicolon (;).
+- Do NOT include \\documentclass, \\usepackage, or \\begin{document} — only the tikzpicture.
+- NEVER use \`shader=interp\`, external \`gnuplot\`, or PNG/file inputs.`;
 
           let visCodeText = "";
           if (visProvider === "gemini") {
@@ -230,8 +356,13 @@ Rules for University-Level Textbook Aesthetics:
             visCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
           }
           
+          if (isNoVisualization(visCodeText)) {
+            renderNoVis();
+            return;
+          }
+
           let tikzCode = "";
-          
+
           // First, try to extract from code blocks
           const tikzRegex = /```(?:latex|tikz|tex)?\s*\n?([\s\S]*?)```/i;
           const tikzMatch = tikzRegex.exec(visCodeText);
@@ -282,13 +413,15 @@ Rules for University-Level Textbook Aesthetics:
             .replace(/\\pgfplotsset\{compat=.*?\}/g, '')
             .trim();
 
-          const printCode = `\\documentclass[tikz,border=2pt]{standalone}
+          const printCode = `\\documentclass[tikz,border=6pt]{standalone}
 \\usepackage{amsmath}
 \\usepackage{amssymb}
 \\usepackage{xcolor}
 \\usepackage{pgfplots}
 \\pgfplotsset{compat=1.18}
-\\usetikzlibrary{calc,angles,quotes,intersections,positioning,arrows.meta,decorations.markings,backgrounds,matrix}
+\\usepgfplotslibrary{fillbetween,colormaps}
+\\usetikzlibrary{calc,angles,quotes,intersections,positioning,arrows.meta,decorations.markings,backgrounds,matrix,patterns}
+${PGFPLOTS_STYLE}
 \\begin{document}
 ${safeTikz}
 \\end{document}`;
@@ -319,67 +452,41 @@ ${safeTikz}
           if (!svgResp.ok) throw new Error("TikZ compilation error");
           const svgText = await svgResp.text();
 
-          const visualDiv = document.createElement("div");
-          visualDiv.style.cssText = "margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: auto; width: 100%;";
-          visualDiv.innerHTML = svgText;
-          const svgEl = visualDiv.querySelector("svg");
-          if(svgEl) {
-             svgEl.style.maxWidth = "100%";
-             svgEl.style.height = "auto";
-             svgEl.style.display = "block";
-             svgEl.style.margin = "0 auto";
+          const holder = document.createElement("div");
+          holder.innerHTML = svgText;
+          const svgEl = holder.querySelector("svg");
+          if (svgEl) {
+            svgEl.style.maxWidth = "100%";
+            svgEl.style.height = "auto";
+            svgEl.style.display = "block";
+            svgEl.style.margin = "0 auto";
           }
           visContainer.innerHTML = "";
-          visContainer.appendChild(visualDiv);
+          visContainer.appendChild(buildFigure(svgEl || holder, "TikZ / PGFPlots"));
 
         } else if (state.visEngine === "svg") {
           // --- Direct SVG / AI Generated Logic ---
           updateVisLoadingUI(`Generating SVG code via ${visModel}...`);
 
-          const coderPrompt = `You are an expert SVG visualization coder for mathematical diagrams.
-I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. 
-Your task is to implement this visualization directly as SVG code.
+          const coderPrompt = `You are an expert at hand-crafting clean, textbook-quality mathematical diagrams as raw SVG. I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. Produce ONE precise figure.
 
 Source Material:
 ${effectiveText}
 
-Rules for Professional Math Diagrams:
-1. STRICT FORMATTING: ONLY output valid SVG code within a \`\`\`svg ... \`\`\` block. MUST start with <svg> and end with </svg>.
-2. SVG STRUCTURE:
-   - Set appropriate viewBox and dimensions (e.g., viewBox="0 0 800 600" width="800" height="600")
-   - Use a clean white or transparent background
-   - Include xmlns="http://www.w3.org/2000/svg" in the svg tag
-3. MATHEMATICAL ELEMENTS:
-   - Use <path> for curves and complex shapes
-   - Use <line>, <circle>, <rect>, <polygon> for basic shapes
-   - Use <text> for labels with mathematical notation (use Unicode math symbols or simple LaTeX-like text)
-   - Add <marker> elements for arrows if needed
-4. STYLING:
-   - Colors: Use academic colors (black, blue!70!black, red!70!black).
-   - Set appropriate stroke-width, fill, and opacity
-   - Add clear labels and annotations
-5. QUALITY:
-   - Ensure all coordinates are precise
-   - Make the diagram scalable and clean
-   - Use consistent styling throughout
-   - Add comments in SVG if helpful for understanding structure
+OUTPUT FORMAT (strict):
+- Reply with ONE \`\`\`svg ... \`\`\` block and nothing else. It MUST start with <svg ...> and end with </svg>, include xmlns="http://www.w3.org/2000/svg", and a viewBox (e.g. viewBox="0 0 760 520").
+- If there is genuinely nothing geometric or graphical worth drawing, reply with exactly: ${NO_VIS_TOKEN}
 
-Example structure:
-\`\`\`svg
-<svg viewBox="0 0 800 600" width="800" height="600" xmlns="http://www.w3.org/2000/svg">
-  <!-- Background -->
-  <rect width="800" height="600" fill="white"/>
-  
-  <!-- Grid or axes if needed -->
-  <line x1="50" y1="300" x2="750" y2="300" stroke="black" stroke-width="2"/>
-  
-  <!-- Your visualization elements -->
-  <circle cx="400" cy="300" r="50" fill="none" stroke="#4169E1" stroke-width="2"/>
-  
-  <!-- Labels -->
-  <text x="400" y="280" text-anchor="middle" font-size="16">Label</text>
-</svg>
-\`\`\``;
+SCOPE: SVG is best for 2D — function graphs, geometry, vectors, number lines, shaded regions, simple data charts. For an inherently 3D idea, draw a clear 2D projection (e.g. an oblique/axonometric sketch with x, y, z axes).
+
+ACCURACY & LAYOUT:
+- Establish a coordinate frame: draw x and y axes with arrowheads (define a <marker>), light gridlines, tick marks, and numeric tick labels. Map the problem's math coordinates to SVG pixels consistently.
+- Draw the ACTUAL curves/shapes/points from the source. Approximate smooth curves with a <path> using enough points or cubic Béziers. Mark key features (intercepts, extrema, intersections, tangent point) with small dots and labels; shade regions with fill-opacity ~0.18.
+
+PROFESSIONAL STYLE:
+- White background <rect>. Axes in #2b2b2b (~1.5px); gridlines #d0d5dd (~1px). A restrained palette: curves in #1f4e8c, #c0392b, #1e8449.
+- Use <text> with font-family="Georgia, 'Times New Roman', serif", font-size 14–16, for a title and axis labels; italicise variables. Keep labels clear of the curves; never let text overlap.
+- Round coordinates to ≤2 decimals.`;
 
           let svgCodeText = "";
           if (visProvider === "gemini") {
@@ -390,6 +497,11 @@ Example structure:
             svgCodeText = await callMistralFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
           } else if (visProvider === "ollama") {
             svgCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
+          }
+
+          if (isNoVisualization(svgCodeText)) {
+            renderNoVis();
+            return;
           }
 
           let svgCode = "";
@@ -418,44 +530,47 @@ Example structure:
 
           updateVisLoadingUI("Rendering SVG...");
 
-          const visualDiv = document.createElement("div");
-          visualDiv.style.cssText = "margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; overflow-x: auto; width: 100%;";
-          visualDiv.innerHTML = svgCode;
-          const svgEl = visualDiv.querySelector("svg");
-          if(svgEl) {
-             svgEl.style.maxWidth = "100%";
-             svgEl.style.height = "auto";
-             svgEl.style.display = "block";
-             svgEl.style.margin = "0 auto";
+          const holder = document.createElement("div");
+          holder.innerHTML = svgCode;
+          const svgEl = holder.querySelector("svg");
+          if (svgEl) {
+            svgEl.style.maxWidth = "100%";
+            svgEl.style.height = "auto";
+            svgEl.style.display = "block";
+            svgEl.style.margin = "0 auto";
           }
           visContainer.innerHTML = "";
-          visContainer.appendChild(visualDiv);
+          visContainer.appendChild(buildFigure(svgEl || holder, "SVG"));
 
         } else {
           // --- Matplotlib / Pyodide Logic ---
           updateVisLoadingUI(`Writing Matplotlib Python code via ${visModel}...`);
 
-          const coderPrompt = `You are an expert Python Matplotlib mathematical visualization coder.
-I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. 
-Your task is to implement this visualization exactly using Matplotlib and Numpy.
+          const coderPrompt = `You are a world-class scientific-visualization engineer who produces publication-quality, textbook-style figures with Matplotlib + NumPy. I am providing you with a ${currentPlanText ? 'DESIGN PLAN' : 'MATH SOLUTION'}. Produce ONE clear, accurate figure that illuminates the core idea.
 
 Source Material:
 ${effectiveText}
 
-Rules for Professional Math Diagrams:
-1. STRICT FORMATTING: ONLY output valid Python code within a \`\`\`python ... \`\`\` block.
-2. CANVAS SETUP: 
-   - MUST save the final figure to 'output.png' using \`plt.savefig('output.png', dpi=150, bbox_inches='tight')\`.
-   - Use a clean white background.
-3. SHAPES & GEOMETRY:
-   - Use \`matplotlib.patches\` (Circle, Rectangle, Polygon, Arc) for 2D geometric diagrams.
-   - For 3D visualizations, use \`from mpl_toolkits.mplot3d import Axes3D\` and \`ax = fig.add_subplot(111, projection='3d')\`.
-   - Example: \`rect = patches.Rectangle((x,y), width, height)\`, then \`ax.add_patch(rect)\`.
-   - Use \`plt.plot()\` for lines and functions.
-4. TYPOGRAPHY:
-   - Use LaTeX for all labels and text, e.g., \`plt.title(r'$\\int f(x) dx$')\`.
-   - Ensure labels don't overlap. Use arrows or offsets if needed.
-5. NO GUI: Do NOT use \`plt.show()\`. Use \`plt.savefig('output.png')\`.`;
+OUTPUT FORMAT (strict):
+- Reply with ONE \`\`\`python ... \`\`\` block and nothing else — no prose.
+- If the problem is purely arithmetic/algebraic with nothing meaningful to depict (no function, curve, shape, region, vector, distribution, or geometric configuration), reply with exactly: ${NO_VIS_TOKEN}
+
+DIMENSIONALITY — choose deliberately:
+- 2D (default): single-variable functions y=f(x), curves, shaded regions/areas, geometry, triangles/circles, number lines, vectors in the plane, bar/pie/data charts.
+- 3D ONLY when inherently three-dimensional: surfaces z=f(x,y), solids of revolution, space curves, planes/vectors in R³. Use \`ax = fig.add_subplot(111, projection='3d')\`, a perceptually-uniform colormap ('viridis'/'cividis'), set a good view with \`ax.view_init(elev=22, azim=-55)\`, and label all three axes.
+
+ACCURACY:
+- Plot the ACTUAL functions, values, and points from the problem. Mark and annotate key features: intercepts, extrema, intersections, asymptotes, the shaded region, the tangent point/line, labelled angles and sides.
+- Sample smoothly with NumPy (e.g. np.linspace(..., 400)). For geometry use \`matplotlib.patches\` (Circle, Polygon, Arc, FancyArrow).
+
+PROFESSIONAL STYLE (a clean textbook style is PRE-APPLIED via rcParams — do NOT call plt.style.use or override fonts/dpi):
+- Give the figure a bold title, axis labels (with units where physical), and a legend when there are multiple series.
+- Use r'$…$' LaTeX in every title, label, and annotation.
+- Shade regions with alpha≈0.2; use \`ax.annotate(..., arrowprops=...)\` for callouts; keep the colour set small and meaningful.
+- For 2D function plots, draw light axes through the origin with \`ax.axhline(0, lw=0.8)\` and \`ax.axvline(0, lw=0.8)\` when it aids reading.
+
+REQUIRED:
+- Save with \`plt.savefig('output.png')\` (dpi and tight bbox are pre-configured). NEVER call plt.show().`;
 
           let pyCodeText = "";
           if (visProvider === "gemini") {
@@ -468,6 +583,11 @@ Rules for Professional Math Diagrams:
             pyCodeText = await callOllamaFollowUp([{ role: "user", content: coderPrompt }], providerKey, visModel, noop);
           }
 
+          if (isNoVisualization(pyCodeText)) {
+            renderNoVis();
+            return;
+          }
+
           let pythonCode = "";
           const pyRegex = /```(?:python|py)?\s*\n?([\s\S]*?)```/i;
           const pyMatch = pyRegex.exec(pyCodeText);
@@ -478,29 +598,36 @@ Rules for Professional Math Diagrams:
             throw new Error("The AI model failed to produce valid Matplotlib code. Please try regenerating.");
           }
 
+          // Prepend the deterministic professional style so every figure looks
+          // like a textbook regardless of what the model emitted.
+          pythonCode = MPL_STYLE_PREAMBLE + "\n" + pythonCode;
+
           updateVisLoadingUI("Rendering diagram locally via Python (WebAssembly)...");
           const imgData = await runPythonInWorker(pythonCode);
-          
+
           const blob = new Blob([imgData], { type: 'image/png' });
           const url = URL.createObjectURL(blob);
-          
-          const visualDiv = document.createElement("div");
-          visualDiv.style.cssText = "margin-top: 1.5rem; text-align: center;";
-          visualDiv.innerHTML = `<img src="${url}" style="max-width: 100%; height: auto; border-radius: var(--radius-md); box-shadow: var(--shadow-sm);" />`;
-          
+
+          const img = document.createElement("img");
+          img.src = url;
+          img.alt = "Generated mathematical figure";
+          img.style.cssText = "max-width: 100%; height: auto; display: block; margin: 0 auto;";
+
           visContainer.innerHTML = "";
-          visContainer.appendChild(visualDiv);
+          visContainer.appendChild(buildFigure(img, "Matplotlib"));
         }
 
-        // Add Regenerate button
-        const regenWrapper = document.createElement("div");
-        regenWrapper.style.cssText = "margin-top: 12px; text-align: center;";
-        const regenBtn = document.createElement("button");
-        regenBtn.className = "btn btn-outline btn-sm";
-        regenBtn.innerHTML = `<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; margin-right: 4px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Regenerate Image`;
-        regenBtn.addEventListener("click", () => startVisualization());
-        regenWrapper.appendChild(regenBtn);
-        visContainer.appendChild(regenWrapper);
+        // Add Regenerate button (skip it for the "no diagram needed" state)
+        if (!visContainer.querySelector(".vis-none")) {
+          const regenWrapper = document.createElement("div");
+          regenWrapper.className = "vis-actions";
+          const regenBtn = document.createElement("button");
+          regenBtn.className = "btn btn-outline btn-sm";
+          regenBtn.innerHTML = `<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px; margin-right: 4px;"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path></svg> Regenerate`;
+          regenBtn.addEventListener("click", () => startVisualization());
+          regenWrapper.appendChild(regenBtn);
+          visContainer.appendChild(regenWrapper);
+        }
 
         scrollToBottom(true);
         updateCache();
@@ -515,7 +642,13 @@ Rules for Professional Math Diagrams:
   };
 
   if (state.visMode === "ask") {
-    visContainer.innerHTML = `<div style="margin-top: 1.5rem; text-align: center;"><button class="btn btn-outline" style="padding: 10px 16px; border-radius: var(--radius-md); font-weight: 500;"><svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 6px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg> Generate Visualization</button></div>`;
+    visContainer.innerHTML = `
+      <div class="vis-prompt">
+        <button class="btn btn-outline vis-generate-btn">
+          <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+          Generate visualization
+        </button>
+      </div>`;
     visContainer.querySelector('button').addEventListener('click', () => startVisualization());
     scrollToBottom(true);
     updateCache();

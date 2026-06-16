@@ -21,11 +21,11 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'Empty diagram source' });
   }
 
-  // Use a longer timeout for the fetch call (Hobby plan is 10s, but we'll try to push it)
-  // Actually, Vercel Hobby is strictly 10s. Pro is 60s.
-  // We'll add an AbortController to the fetch itself.
+  // Kroki/TikZ compilation can take several seconds. Vercel Hobby caps the
+  // function at 10s, so abort the upstream fetch just under that to return a
+  // clean 504 instead of a hard platform timeout.
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 1000); // slightly over 10s to let Vercel handle it if needed
+  const timeoutId = setTimeout(() => controller.abort(), 9000);
 
   try {
     const krokiResponse = await fetch('https://kroki.io/tikz/svg', {

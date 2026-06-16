@@ -124,6 +124,28 @@ body {
   flex-shrink: 0;
 }
 
+/* Visible keyboard-focus ring (mouse clicks stay clean via :focus-visible) */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+.text-input:focus-visible {
+  outline: none;
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
 /* ── Icon Button ────────────────────────────────────────── */
 .icon-btn {
   display: inline-flex;
@@ -1593,6 +1615,104 @@ input:checked + .slider:before {
 }
 .solution-content .math-block .katex-display {
   margin: 0 !important;
+}
+
+/* ── Generated Visualizations ───────────────────────────── */
+.vis-container {
+  margin-top: 1.5rem;
+}
+
+/* A framed, captioned "plate" so every figure reads like a textbook.
+   The white frame also keeps dark-stroked TikZ/SVG diagrams readable in
+   dark mode (their backgrounds are transparent). */
+.vis-figure {
+  margin: 1.5rem 0 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  animation: fadeInUp 0.4s ease;
+}
+.vis-figure-frame {
+  width: 100%;
+  background: #ffffff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 18px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow-x: auto;
+}
+.vis-figure-frame svg,
+.vis-figure-frame img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 0 auto;
+}
+.vis-figure-caption {
+  font-size: 12.5px;
+  color: var(--text-muted);
+  text-align: center;
+  letter-spacing: 0.2px;
+  font-style: italic;
+  line-height: 1.5;
+}
+.vis-figure-tag {
+  font-style: normal;
+  font-weight: 700;
+  color: var(--text-secondary);
+  margin-right: 5px;
+  letter-spacing: 0.3px;
+}
+
+/* "No diagram needed" note */
+.vis-none {
+  margin-top: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.vis-none svg {
+  width: 16px;
+  height: 16px;
+  color: var(--success);
+  flex-shrink: 0;
+}
+
+/* Ask-mode "Generate visualization" prompt */
+.vis-prompt {
+  margin-top: 1.5rem;
+  display: flex;
+  justify-content: center;
+}
+.vis-generate-btn {
+  padding: 10px 18px;
+  border-radius: 99px;
+  font-weight: 600;
+  border-style: dashed;
+}
+.vis-generate-btn:hover {
+  border-style: solid;
+}
+.vis-generate-btn svg {
+  margin-right: 4px;
+}
+
+/* Figure action row (Regenerate) */
+.vis-actions {
+  margin-top: 12px;
+  display: flex;
+  justify-content: center;
 }
 
 /* ── Chat Container ─────────────────────────────────────── */

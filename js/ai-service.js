@@ -147,24 +147,10 @@ export async function callGroqFollowUp(messages, apiKey, model, onChunk) {
 export async function callMistralChat(base64, apiKey, model, onChunk) {
   const url = "https://api.mistral.ai/v1/chat/completions";
 
-  // Pixtral models support vision
-  const visionModels = ["pixtral-large-latest", "pixtral-12b-2409"];
-  const supportsVision = visionModels.includes(model);
-
-  let content;
-  if (supportsVision) {
-    content = [
-      { type: "text", text: SYSTEM_PROMPT },
-      { type: "image_url", image_url: `data:image/png;base64,${base64}` },
-    ];
-  } else {
-    // For text-only Mistral models, we can still pass image_url format
-    // (Mistral API handles it gracefully or ignores non-vision-capable parts)
-    content = [
-      { type: "text", text: SYSTEM_PROMPT },
-      { type: "image_url", image_url: `data:image/png;base64,${base64}` },
-    ];
-  }
+  const content = [
+    { type: "text", text: "Please solve the question in this image." },
+    { type: "image_url", image_url: `data:image/png;base64,${base64}` },
+  ];
 
   const body = {
     model,

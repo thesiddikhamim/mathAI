@@ -36,6 +36,8 @@ export const state = {
   activeTabId: "gemini:gemini-3.1-pro-preview",
   chatHistory: [],
   isSolved: false,
+  // Base64 of the selection armed to attach to the next chat message (null = none)
+  pendingAttachment: null,
   isUserScrolledUp: false, // Track if user scrolled up during streaming
   // Cache keyed by tab ID
   answerCache: {},

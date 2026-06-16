@@ -102,6 +102,9 @@ export const el = {
   chatInput: $("chatInput"),
   chatSendBtn: $("chatSendBtn"),
   chatRegenerateBtn: $("chatRegenerateBtn"),
+  chatAttachChip: $("chatAttachChip"),
+  chatAttachThumb: $("chatAttachThumb"),
+  chatAttachRemove: $("chatAttachRemove"),
 
   // Toast
   toast: $("toast"),

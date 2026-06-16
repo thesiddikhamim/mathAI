@@ -1718,12 +1718,18 @@ input:checked + .slider:before {
 /* ── Chat Container ─────────────────────────────────────── */
 .chat-container {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 8px;
   padding: 14px 18px;
   border-top: 1px solid var(--border);
   background: var(--bg-tertiary);
   flex-shrink: 0;
+}
+.chat-input-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 .chat-container .text-input {
   flex: 1;
@@ -1739,6 +1745,50 @@ input:checked + .slider:before {
   flex-shrink: 0;
 }
 
+/* Attached selection chip (above the input) */
+.chat-attach-chip {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  align-self: flex-start;
+  max-width: 100%;
+}
+.chat-attach-thumb {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.chat-attach-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+.chat-attach-remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.chat-attach-remove:hover {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
 .chat-msg-user {
   background: var(--bg-tertiary);
   padding: 12px 18px;
@@ -1747,6 +1797,16 @@ input:checked + .slider:before {
   font-weight: 500;
   color: var(--text-primary);
   border-left: 3px solid var(--accent);
+}
+.chat-msg-user-img {
+  display: block;
+  max-width: 240px;
+  max-height: 180px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.chat-msg-user-img + .chat-msg-user-text {
+  margin-top: 10px;
 }
 .chat-msg-ai {
   margin-bottom: 24px;
@@ -2270,6 +2330,17 @@ input:checked + .slider:before {
   .chat-container .btn {
     width: 40px;
     height: 40px;
+  }
+  .chat-attach-chip {
+    padding: 5px 7px;
+    gap: 8px;
+  }
+  .chat-attach-thumb {
+    width: 36px;
+    height: 36px;
+  }
+  .chat-attach-label {
+    font-size: 12px;
   }
 
   /* File header: compact */

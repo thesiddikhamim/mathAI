@@ -187,19 +187,11 @@ export async function callMistralChat(base64, apiKey, model, onChunk) {
  */
 export async function callMistralFollowUp(messages, apiKey, model, onChunk) {
   const url = "https://api.mistral.ai/v1/chat/completions";
-  // Convert content arrays to strings for follow-up
-  const cleanMessages = messages.map((m) => ({
-    role: m.role,
-    content: Array.isArray(m.content)
-      ? m.content
-          .filter((c) => c.type === "text")
-          .map((c) => c.text)
-          .join(" ")
-      : m.content,
-  }));
+  // Pass messages through as-is so attached images (content arrays with
+  // image_url parts) are preserved alongside text.
   const body = {
     model,
-    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...cleanMessages],
+    messages: [{ role: "system", content: SYSTEM_PROMPT }, ...messages],
     temperature: 0.15,
     max_tokens: 8192,
     stream: true,
@@ -264,15 +256,20 @@ export async function callOllamaChat(base64, apiKey, model, onChunk) {
 
 export async function callOllamaFollowUp(messages, apiKey, model, onChunk) {
   const url = `/api/ollama`;
-  const cleanMessages = messages.map((m) => ({
-    role: m.role,
-    content: Array.isArray(m.content)
-      ? m.content
-          .filter((c) => c.type === "text")
-          .map((c) => c.text)
-          .join(" ")
-      : m.content,
-  }));
+  const cleanMessages = messages.map((m) => {
+    const msg = {
+      role: m.role,
+      content: Array.isArray(m.content)
+        ? m.content
+            .filter((c) => c.type === "text")
+            .map((c) => c.text)
+            .join(" ")
+        : m.content,
+    };
+    // Preserve attached images (Ollama expects an `images` array on the message)
+    if (m.images) msg.images = m.images;
+    return msg;
+  });
   const fullMessages = [
     { role: "system", content: SYSTEM_PROMPT },
     ...cleanMessages,

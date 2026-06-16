@@ -3,7 +3,7 @@ import { el } from './dom.js';
 import { MIN_SEL } from './config.js';
 import { showToast, getErrorHtml, scrollToBottom } from './utils.js';
 import { setSolutionState, enableOutputBtns, disableOutputBtns, isMobile, setHint } from './ui-manager.js';
-import { cropSelectionToBase64, clearSelection } from './selection.js';
+import { cropSelectionToBase64, clearSelection, clearAttachment } from './selection.js';
 import { appendThinkingIndicator, renderMarkdown, appendUserMessage } from './renderer.js';
 import { callGeminiChat, callGroqChat, callMistralChat, callOllamaChat, callGroqFollowUp, callMistralFollowUp, callOllamaFollowUp } from './ai-service.js';
 import { renderVisualization } from './visualization.js';
@@ -201,6 +201,8 @@ export async function solveAllSelection() {
     }
   });
 
+  clearAttachment();
+
   if (isMobile()) {
     const tabSol = document.getElementById("tabSolution");
     if (tabSol) tabSol.click();
@@ -373,6 +375,7 @@ export async function solveSelection(resetGlobalCache = false) {
       state.isSolved = true;
     }
 
+    clearAttachment();
     enableOutputBtns();
     setHint(
       "Done! " +
@@ -413,13 +416,24 @@ export async function solveSelection(resetGlobalCache = false) {
   }
 }
 
-export async function sendFollowUp() {
+/**
+ * Unified chat send — handles text-only, image-only (active selection), or both.
+ * An active selection starts a fresh question (image + optional text); a text-only
+ * message continues the current conversation (or starts a new text-only one).
+ * Always targets the active model tab.
+ */
+export async function sendMessage() {
   const currentTabId = state.activeTabId;
   if (!currentTabId) return;
   const [currentProvider, currentModel] = currentTabId.split(":");
+
   const text = el.chatInput.value.trim();
-  if (!text) return;
-  el.chatInput.value = "";
+  const base64 = state.pendingAttachment;
+
+  if (!text && !base64) {
+    showToast("Type a question or select a region first.");
+    return;
+  }
 
   const providerKey = {
     gemini: state.apiKey,
@@ -428,16 +442,52 @@ export async function sendFollowUp() {
     ollama: state.ollamaApiKey,
   }[currentProvider];
 
+  if (!providerKey) {
+    const names = {
+      gemini: "Gemini",
+      groq: "Groq",
+      mistral: "Mistral",
+      ollama: "Ollama Cloud",
+    };
+    showToast(`⚙️ Add your ${names[currentProvider]} API key in Settings first.`);
+    openSettings();
+    return;
+  }
+
+  // An attached image (or an empty thread) means a brand-new question.
+  const isNew = !!base64 || state.chatHistory.length === 0;
+
+  el.chatInput.value = "";
+  if (base64) clearSelection();
   disableOutputBtns();
 
-  let response;
-  let wrapper = state.jobNodes[currentTabId];
-  if (!wrapper) {
+  let wrapper;
+  if (isNew) {
+    state.chatHistory = [];
+    state.rawResponse = "";
     wrapper = document.createElement("div");
     wrapper.className = "job-wrapper";
-    wrapper.innerHTML = el.solutionContent.innerHTML;
     state.jobNodes[currentTabId] = wrapper;
+    setSolutionState("content");
+    el.solutionContent.innerHTML = "";
+    el.solutionContent.appendChild(wrapper);
+    el.errorActions.classList.add("hidden");
+    state.isSolved = false;
+  } else {
+    wrapper = state.jobNodes[currentTabId];
+    if (!wrapper) {
+      wrapper = document.createElement("div");
+      wrapper.className = "job-wrapper";
+      wrapper.innerHTML = el.solutionContent.innerHTML;
+      state.jobNodes[currentTabId] = wrapper;
+    }
   }
+
+  if (isMobile() && window.showPanel) {
+    window.showPanel("solution");
+  }
+
+  let response = "";
   let thinkingIndicator = null;
 
   try {
@@ -446,18 +496,17 @@ export async function sendFollowUp() {
     if (!document.body.contains(wrapper)) {
       el.solutionContent.innerHTML = "";
       el.solutionContent.appendChild(wrapper);
-    } else {
-      if (!el.solutionContent.contains(wrapper) && currentTabId === state.activeTabId) {
-        el.solutionContent.appendChild(wrapper);
-      }
+    } else if (
+      !el.solutionContent.contains(wrapper) &&
+      currentTabId === state.activeTabId
+    ) {
+      el.solutionContent.appendChild(wrapper);
     }
 
-    appendUserMessage(text, wrapper);
+    appendUserMessage(text, wrapper, base64);
 
-    // Append thinking indicator
     thinkingIndicator = appendThinkingIndicator(wrapper);
 
-    // Create the container for the AI message right away
     const aiMsg = document.createElement("div");
     aiMsg.className = "chat-msg-ai";
     wrapper.appendChild(aiMsg);
@@ -466,13 +515,18 @@ export async function sendFollowUp() {
     const onChunk = (fullText, chunkText) => {
       if (!firstChunkReceived) {
         firstChunkReceived = true;
-        if (thinkingIndicator && thinkingIndicator.parentNode) thinkingIndicator.remove();
+        if (thinkingIndicator && thinkingIndicator.parentNode)
+          thinkingIndicator.remove();
       }
       renderMarkdown(fullText, aiMsg);
     };
 
     if (currentProvider === "gemini") {
-      state.chatHistory.push({ role: "user", parts: [{ text }] });
+      const parts = [];
+      if (base64)
+        parts.push({ inlineData: { mimeType: "image/jpeg", data: base64 } });
+      if (text) parts.push({ text });
+      state.chatHistory.push({ role: "user", parts });
       response = await callGeminiChat(
         state.chatHistory,
         providerKey,
@@ -481,7 +535,16 @@ export async function sendFollowUp() {
       );
       state.chatHistory.push({ role: "model", parts: [{ text: response }] });
     } else if (currentProvider === "groq") {
-      state.chatHistory.push({ role: "user", content: text });
+      let content = text;
+      if (base64) {
+        content = [];
+        if (text) content.push({ type: "text", text });
+        content.push({
+          type: "image_url",
+          image_url: { url: `data:image/png;base64,${base64}` },
+        });
+      }
+      state.chatHistory.push({ role: "user", content });
       response = await callGroqFollowUp(
         state.chatHistory,
         providerKey,
@@ -490,7 +553,16 @@ export async function sendFollowUp() {
       );
       state.chatHistory.push({ role: "assistant", content: response });
     } else if (currentProvider === "mistral") {
-      state.chatHistory.push({ role: "user", content: text });
+      let content = text;
+      if (base64) {
+        content = [];
+        if (text) content.push({ type: "text", text });
+        content.push({
+          type: "image_url",
+          image_url: `data:image/png;base64,${base64}`,
+        });
+      }
+      state.chatHistory.push({ role: "user", content });
       response = await callMistralFollowUp(
         state.chatHistory,
         providerKey,
@@ -499,7 +571,12 @@ export async function sendFollowUp() {
       );
       state.chatHistory.push({ role: "assistant", content: response });
     } else if (currentProvider === "ollama") {
-      state.chatHistory.push({ role: "user", content: text });
+      const msg = {
+        role: "user",
+        content: text || "Please solve the question in this image.",
+      };
+      if (base64) msg.images = [base64];
+      state.chatHistory.push(msg);
       response = await callOllamaFollowUp(
         state.chatHistory,
         providerKey,
@@ -517,23 +594,24 @@ export async function sendFollowUp() {
       }
     }
 
-    state.rawResponse += "\n\n" + response;
-
+    state.rawResponse = isNew ? response : state.rawResponse + "\n\n" + response;
     state.runningJobs[currentTabId] = false;
+    state.isSolved = true;
 
-    // Update cache
-    if (state.answerCache[currentTabId]) {
-      state.answerCache[currentTabId].rawResponse = state.rawResponse;
-      state.answerCache[currentTabId].chatHistory = [...state.chatHistory];
-      state.answerCache[currentTabId].solutionHTML = wrapper.innerHTML;
-    }
+    state.answerCache[currentTabId] = {
+      rawResponse: state.rawResponse,
+      chatHistory: [...state.chatHistory],
+      solutionHTML: wrapper.innerHTML,
+    };
+
+    enableOutputBtns();
   } catch (err) {
     state.runningJobs[currentTabId] = false;
-    wrapper.querySelectorAll(".chat-msg-thinking").forEach((el) => el.remove());
+    wrapper.querySelectorAll(".chat-msg-thinking").forEach((node) => node.remove());
     wrapper.insertAdjacentHTML(
       "beforeend",
       getErrorHtml(
-        "Follow-up request failed",
+        "Request failed",
         err.message || "Something went wrong.",
       ),
     );
@@ -542,7 +620,7 @@ export async function sendFollowUp() {
     }
     console.error(err);
   } finally {
-    wrapper.querySelectorAll(".chat-msg-thinking").forEach((el) => el.remove());
+    wrapper.querySelectorAll(".chat-msg-thinking").forEach((node) => node.remove());
     if (state.answerCache[currentTabId]) {
       state.answerCache[currentTabId].solutionHTML = wrapper.innerHTML;
     }

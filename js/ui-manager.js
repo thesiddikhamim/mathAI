@@ -7,10 +7,6 @@ export function setSolutionState(mode) {
     "hidden",
     mode !== "content" && mode !== "error",
   );
-
-  if (el.chatContainer) {
-    el.chatContainer.classList.toggle("hidden", mode !== "content");
-  }
 }
 
 export function enableOutputBtns() {

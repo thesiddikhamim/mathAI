@@ -116,10 +116,25 @@ export function renderSolution(raw) {
   el.solutionContent.parentElement.scrollTop = 0;
 }
 
-export function appendUserMessage(text, container = el.solutionContent) {
+export function appendUserMessage(text, container = el.solutionContent, imageBase64 = null) {
   const userMsg = document.createElement("div");
   userMsg.className = "chat-msg-user";
-  userMsg.textContent = text;
+
+  if (imageBase64) {
+    const img = document.createElement("img");
+    img.className = "chat-msg-user-img";
+    img.src = `data:image/jpeg;base64,${imageBase64}`;
+    img.alt = "Attached selection";
+    userMsg.appendChild(img);
+  }
+
+  if (text) {
+    const textEl = document.createElement("div");
+    textEl.className = "chat-msg-user-text";
+    textEl.textContent = text;
+    userMsg.appendChild(textEl);
+  }
+
   container.appendChild(userMsg);
   if (container === el.solutionContent || el.solutionContent.contains(container)) {
     scrollToBottom();

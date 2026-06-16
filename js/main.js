@@ -5,7 +5,7 @@ import { loadSettings, openSettings, closeSettings, renderSettingsModels, render
 import { handleFile, resetFile, renderPDFPage } from './file-handler.js';
 import { onOverlayDown, onMouseMove, onMouseUp, clearSelection } from './selection.js';
 import { renderModelCarousel } from './carousel.js';
-import { solveSelection, solveAllSelection, sendFollowUp } from './chat-engine.js';
+import { solveSelection, solveAllSelection, sendMessage } from './chat-engine.js';
 import { initExporter } from './exporter.js';
 import { initMobile } from './mobile.js';
 import { setSolutionState, disableOutputBtns, initPanelResize } from './ui-manager.js';
@@ -312,13 +312,20 @@ function init() {
     solveSelection(false);
   });
 
-  el.chatSendBtn.addEventListener("click", sendFollowUp);
+  el.chatSendBtn.addEventListener("click", sendMessage);
   el.chatRegenerateBtn.addEventListener("click", () => {
     solveSelection(false);
   });
   el.chatInput.addEventListener("keydown", (e) => {
-    if (e.key === "Enter") sendFollowUp();
+    if (e.key === "Enter") sendMessage();
   });
+
+  if (el.chatAttachRemove) {
+    el.chatAttachRemove.addEventListener("click", () => {
+      if (window.clearSelection) window.clearSelection();
+      else clearSelection();
+    });
+  }
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") {

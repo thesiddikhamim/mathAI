@@ -1,7 +1,7 @@
 import { state, sel } from './state.js';
 import { el, $ } from './dom.js';
 import { isMobile, setHint, setSolutionState } from './ui-manager.js';
-import { renderSelection, hideMasks, clearSelection, resizeFromHandle } from './selection.js';
+import { renderSelection, hideMasks, clearSelection, resizeFromHandle, syncAttachChip } from './selection.js';
 import { solveSelection } from './chat-engine.js';
 import { handleFile } from './file-handler.js';
 import { MIN_SEL } from './config.js';
@@ -90,6 +90,7 @@ export function initMobile() {
     }
 
     updateFabVisibility();
+    syncAttachChip();
   }
 
   function deactivateTouchSelectMode() {
@@ -208,6 +209,7 @@ export function initMobile() {
     sel.handle = null;
     el.selBox.classList.remove("dragging");
     updateFabVisibility();
+    syncAttachChip();
   });
 
   // Touch move/resize on sel-box (for mobile selecting existing box)
@@ -252,6 +254,7 @@ export function initMobile() {
     if (e.pointerType === "mouse") return;
     el.selBox.classList.remove("dragging");
     sel.mode = null;
+    syncAttachChip();
   });
 
   // Touch resize handles
@@ -302,6 +305,7 @@ export function initMobile() {
       el.selBox.classList.remove("dragging");
       sel.mode = null;
       updateFabVisibility();
+      syncAttachChip();
     });
   });
 

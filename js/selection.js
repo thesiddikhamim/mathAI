@@ -80,6 +80,7 @@ export function onMouseUp() {
   }
   sel.mode = null;
   sel.handle = null;
+  syncAttachChip();
 }
 
 export function resizeFromHandle(dir, dx, dy, overlayRect) {
@@ -225,6 +226,42 @@ export function clearSelection() {
   sel.h = 0;
   el.selBox.classList.add("hidden");
   hideMasks();
+  syncAttachChip();
+}
+
+/**
+ * Sync the chat attachment chip with the current selection.
+ * Arms a thumbnail of the selected region for the next chat message.
+ */
+export function syncAttachChip() {
+  const valid =
+    state.file && sel.active && sel.w >= MIN_SEL && sel.h >= MIN_SEL;
+
+  if (valid) {
+    const b64 = cropSelectionToBase64();
+    if (b64) {
+      state.pendingAttachment = b64;
+      if (el.chatAttachChip) {
+        el.chatAttachThumb.src = `data:image/jpeg;base64,${b64}`;
+        el.chatAttachChip.classList.remove("hidden");
+      }
+      return;
+    }
+  }
+
+  clearAttachment();
+}
+
+/**
+ * Disarm the chat attachment (hide chip) without touching the selection box,
+ * so the next chat message is text-only. Used after a solve completes.
+ */
+export function clearAttachment() {
+  state.pendingAttachment = null;
+  if (el.chatAttachChip) {
+    el.chatAttachChip.classList.add("hidden");
+    el.chatAttachThumb.removeAttribute("src");
+  }
 }
 
 export function cropSelectionToBase64() {

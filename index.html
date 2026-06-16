@@ -1030,52 +1030,77 @@
           </div>
         </div>
 
-        <!-- Chat Input (hidden until solved) -->
-        <div id="chatContainer" class="chat-container hidden">
-          <button
-            id="chatRegenerateBtn"
-            class="btn btn-primary"
-            title="Try again"
-            aria-label="Try again"
-          >
-            <svg
-              class="icon-sm"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
+        <!-- Chat Input (always visible) -->
+        <div id="chatContainer" class="chat-container">
+          <!-- Attached selection preview -->
+          <div id="chatAttachChip" class="chat-attach-chip hidden">
+            <img id="chatAttachThumb" class="chat-attach-thumb" alt="Attached selection" />
+            <span class="chat-attach-label">Selection attached</span>
+            <button
+              id="chatAttachRemove"
+              class="chat-attach-remove"
+              title="Remove attachment"
+              aria-label="Remove attachment"
             >
-              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-              <path d="M3 3v5h5" />
-            </svg>
-          </button>
-          <input
-            type="text"
-            id="chatInput"
-            name="mathAIQuery"
-            class="text-input"
-            placeholder="Ask a follow-up question..."
-            autocomplete="off"
-          />
-          <button
-            id="chatSendBtn"
-            class="btn btn-primary"
-            title="Send"
-            aria-label="Send message"
-          >
-            <svg
-              class="icon-sm"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
+              <svg
+                class="icon-sm"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+              >
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+          <div class="chat-input-row">
+            <button
+              id="chatRegenerateBtn"
+              class="btn btn-primary"
+              title="Try again"
+              aria-label="Try again"
             >
-              <line x1="22" y1="2" x2="11" y2="13" />
-              <polygon points="22 2 15 22 11 13 2 9 22 2" />
-            </svg>
-          </button>
+              <svg
+                class="icon-sm"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+            </button>
+            <input
+              type="text"
+              id="chatInput"
+              name="mathAIQuery"
+              class="text-input"
+              placeholder="Ask anything — or select a region to attach…"
+              autocomplete="off"
+            />
+            <button
+              id="chatSendBtn"
+              class="btn btn-primary"
+              title="Send"
+              aria-label="Send message"
+            >
+              <svg
+                class="icon-sm"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
+                <line x1="22" y1="2" x2="11" y2="13" />
+                <polygon points="22 2 15 22 11 13 2 9 22 2" />
+              </svg>
+            </button>
+          </div>
         </div>
       </section>
     </main>

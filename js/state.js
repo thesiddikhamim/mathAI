@@ -1,61 +1,54 @@
 export const state = {
-  fileType: null, // 'image' | 'pdf'
+  fileType: null,
   file: null,
   pdfDoc: null,
   curPage: 1,
   totalPages: 0,
   rawResponse: "",
-  // Per-provider credentials
   apiKey: "",
   groqApiKey: "",
   mistralApiKey: "",
   ollamaApiKey: "",
-  // Enabled providers
+  openrouterApiKey: "",
   enabledProviders: {
     gemini: true,
     ollama: true,
     mistral: true,
-    groq: true
+    groq: true,
+    openrouter: true
   },
-  // Selected models per provider
   selectedModels: {
     gemini: ["gemini-3.1-pro-preview"],
     ollama: ["qwen3.5:cloud"],
     mistral: ["mistral-large-latest"],
-    groq: ["meta-llama/llama-4-scout-17b-16e-instruct"]
+    groq: ["meta-llama/llama-4-scout-17b-16e-instruct"],
+    openrouter: ["google/gemma-4-26b-a4b-it:free"]
   },
   enableVisualization: false,
-  // "matplotlib" (local, reliable, native 2D + 3D) | "tikz" (Kroki) | "svg" (AI)
   visEngine: "matplotlib",
-  visMode: "ask", // "ask" or "auto"
+  visMode: "ask",
   visModelConfig: "ollama:qwen3.5:cloud",
   enableVisPlanner: false,
   visPlannerModelConfig: "ollama:qwen3.5:cloud",
   visEnabledModels: ["gemini:gemini-3.1-pro-preview", "ollama:qwen3.5:cloud"],
-  // Active tab ID (e.g. "gemini:gemini-3.1-pro-preview")
   activeTabId: "gemini:gemini-3.1-pro-preview",
   chatHistory: [],
   isSolved: false,
-  // Base64 of the selection armed to attach to the next chat message (null = none)
   pendingAttachment: null,
-  isUserScrolledUp: false, // Track if user scrolled up during streaming
-  // Cache keyed by tab ID
+  isUserScrolledUp: false,
   answerCache: {},
-  // Track running operations keyed by tab ID
   runningJobs: {},
-  jobNodes: {}, // DOM elements for jobs running in the background
+  jobNodes: {},
 };
 
 export const sel = {
-  active: false, // A selection exists
+  active: false,
   x: 0,
-  y: 0, // Top-left in overlay coordinates
+  y: 0,
   w: 0,
-  h: 0, // Width & height
-
-  // Interaction
-  mode: null, // 'draw' | 'move' | 'resize'
-  handle: null, // Which handle is being dragged (nw,n,ne,e,se,s,sw,w)
+  h: 0,
+  mode: null,
+  handle: null,
   startX: 0,
   startY: 0,
   origX: 0,

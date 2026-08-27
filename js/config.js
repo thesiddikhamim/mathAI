@@ -39,6 +39,14 @@ export const AVAILABLE_MODELS = {
     { id: "llama-3.3-70b-versatile", label: "Llama 3.3 70B" },
     { id: "openai/gpt-oss-120b", label: "GPT OSS 120B" },
     { id: "openai/gpt-oss-20b", label: "GPT OSS 20B" }
+  ],
+  openrouter: [
+    { id: "openrouter/free", label: "OpenRouter Free (Auto)" },
+    { id: "google/gemma-4-26b-a4b-it:free", label: "Gemma 4 26B A4B (Free)" },
+    { id: "qwen/qwen3-vl-235b-a22b-thinking:free", label: "Qwen3 VL 235B Thinking (Free)" },
+    { id: "google/gemma-3-27b-it:free", label: "Gemma 3 27B (Free)" },
+    { id: "google/gemma-3-12b-it:free", label: "Gemma 3 12B (Free)" },
+    { id: "google/gemma-3-4b-it:free", label: "Gemma 3 4B (Free)" }
   ]
 };
 
